@@ -977,7 +977,7 @@ body.edit-mode .cb { display: none; }
 // Set this to your Cloudflare Worker URL after deployment
 // e.g. 'https://camping-app-proxy.yourusername.workers.dev'
 // Leave as empty string to use direct Anthropic API (Claude.ai only)
-const PROXY_URL = '';
+const PROXY_URL = 'https://camping-app-proxy.katieemaay.workers.dev/';
 
 function getApiUrl() {
   return PROXY_URL ? PROXY_URL : 'https://api.anthropic.com';
