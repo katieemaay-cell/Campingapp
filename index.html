@@ -1,0 +1,2877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Camp Planner — Trip Builder</title>
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#2e4a22">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Camp Planner">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<meta name="description" content="Build a personalised camping packing list for any Australian national park">
+
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ──────────────────────────────────────────────────────────── */
+:root {
+  --moss:   #2e4a22;
+  --fern:   #5a7a46;
+  --sage:   #8aaa74;
+  --bark:   #6e4c2e;
+  --clay:   #b8722e;
+  --sand:   #e8d8b0;
+  --paper:  #f5f0e4;
+  --cream:  #faf7f0;
+  --ink:    #1c1c14;
+  --smoke:  #6a6a5a;
+  --mist:   #ddd8c8;
+  --cold:   #3a5e6e;
+  --ember:  #b83a18;
+  --white:  #ffffff;
+}
+
+/* ── RESET ───────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'DM Mono', monospace;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── SKIP LINK ────────────────────────────────────────────────────────── */
+.skip-link {
+  position: absolute; top: -100%; left: 0.5rem;
+  background: var(--moss); color: white;
+  padding: 0.4rem 0.8rem; border-radius: 0 0 4px 4px;
+  font-size: 0.78rem; text-decoration: none; z-index: 9999;
+  transition: top 0.15s;
+}
+.skip-link:focus { top: 0; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+/* ── WIZARD SCREEN ───────────────────────────────────────────────────── */
+#wizardScreen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.wiz-hero {
+  background: var(--moss);
+  color: var(--paper);
+  padding: 2.5rem 1.5rem 2rem;
+  position: relative;
+  overflow: hidden;
+}
+.wiz-hero::after {
+  content: '🌲🌿🌲🌿🌲🌿🌲🌿🌲🌿🌲🌿';
+  position: absolute; bottom: 0; left: 0; right: 0;
+  font-size: 1.5rem; letter-spacing: -4px; opacity: 0.2;
+  line-height: 1; white-space: nowrap; overflow: hidden;
+  pointer-events: none;
+}
+.wiz-hero-inner { max-width: 620px; margin: 0 auto; position: relative; z-index: 1; }
+.wiz-eyebrow {
+  font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--sage); margin-bottom: 0.5rem;
+}
+.wiz-title {
+  font-family: 'Libre Baskerville', serif;
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  font-weight: 700; line-height: 1.1;
+  margin-bottom: 0.4rem;
+}
+.wiz-subtitle { font-size: 0.82rem; opacity: 0.65; }
+
+/* Step progress bar */
+.wiz-progress {
+  max-width: 620px; margin: 0 auto;
+  padding: 1rem 1.5rem 0;
+}
+.wiz-steps {
+  display: flex; gap: 0.3rem; align-items: center;
+}
+.wiz-step-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--mist); transition: background 0.2s;
+  flex-shrink: 0;
+}
+.wiz-step-dot.done { background: var(--fern); }
+.wiz-step-dot.active { background: var(--clay); width: 20px; border-radius: 4px; }
+.wiz-step-label {
+  margin-left: 0.6rem;
+  font-size: 0.65rem; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--smoke);
+}
+
+/* Wizard body */
+.wiz-body {
+  flex: 1;
+  max-width: 620px; margin: 0 auto;
+  padding: 1.5rem 1.5rem 6rem;
+  width: 100%;
+}
+
+.wiz-section { display: none; }
+.wiz-section.active { display: block; }
+
+.wiz-section-title {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 1.15rem; font-weight: 700;
+  color: var(--moss); margin-bottom: 0.2rem;
+}
+.wiz-section-desc {
+  font-size: 0.75rem; color: var(--smoke);
+  margin-bottom: 1.4rem;
+}
+
+/* Form fields */
+.field { margin-bottom: 1.1rem; }
+.field label {
+  display: block;
+  font-size: 0.72rem; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--smoke);
+  margin-bottom: 0.3rem; font-weight: 500;
+}
+.field input, .field select, .field textarea {
+  width: 100%;
+  background: var(--white);
+  border: 1.5px solid var(--mist);
+  border-radius: 4px;
+  padding: 0.6rem 0.8rem;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--ink);
+  transition: border-color 0.15s;
+  appearance: none;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none; border-color: var(--fern);
+  box-shadow: 0 0 0 3px rgba(90,122,70,0.12);
+}
+.field textarea { resize: vertical; min-height: 80px; }
+.field-hint {
+  font-size: 0.67rem; color: #aaa;
+  margin-top: 0.25rem; font-style: italic;
+}
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+@media (max-width: 400px) { .field-row { grid-template-columns: 1fr; } }
+
+/* Radio / checkbox cards */
+.card-group {
+  display: grid; gap: 0.5rem;
+  margin-bottom: 1.1rem;
+}
+.card-group.cols-2 { grid-template-columns: 1fr 1fr; }
+.card-group.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+@media (max-width: 400px) {
+  .card-group.cols-2, .card-group.cols-3 { grid-template-columns: 1fr; }
+}
+.card-option { position: relative; }
+.card-option input { position: absolute; opacity: 0; width: 0; height: 0; }
+.card-option label {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.65rem 0.8rem;
+  border: 1.5px solid var(--mist);
+  border-radius: 5px;
+  background: var(--white);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+  transition: all 0.15s;
+  min-height: 44px;
+}
+.card-option label:hover { border-color: var(--sage); background: #f8f5ee; }
+.card-option input:checked + label {
+  border-color: var(--fern);
+  background: #eef4e8;
+  color: var(--moss);
+  font-weight: 500;
+}
+.card-option input:focus-visible + label {
+  outline: 2px solid var(--moss); outline-offset: 2px;
+}
+.card-icon { font-size: 1rem; flex-shrink: 0; }
+.card-text { flex: 1; line-height: 1.2; }
+.card-sub { font-size: 0.65rem; color: var(--smoke); margin-top: 0.1rem; display: block; }
+
+/* Walk entries */
+.walk-list { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.8rem; }
+.walk-entry {
+  display: flex; gap: 0.5rem; align-items: flex-start;
+  background: var(--white); border: 1.5px solid var(--mist);
+  border-radius: 5px; padding: 0.7rem 0.8rem;
+}
+.walk-entry-num {
+  flex-shrink: 0; width: 22px; height: 22px;
+  background: var(--fern); color: white;
+  border-radius: 50%; font-size: 0.65rem;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 0.15rem;
+}
+.walk-entry-fields { flex: 1; display: flex; flex-direction: column; gap: 0.4rem; }
+.walk-entry input {
+  width: 100%; background: var(--paper);
+  border: 1px solid var(--mist); border-radius: 3px;
+  padding: 0.4rem 0.6rem;
+  font-family: 'DM Mono', monospace; font-size: 0.78rem;
+  color: var(--ink);
+}
+.walk-entry input:focus { outline: none; border-color: var(--fern); }
+
+/* Gear checklist */
+.gear-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 0.4rem; margin-bottom: 1rem;
+}
+@media (max-width: 400px) { .gear-grid { grid-template-columns: 1fr; } }
+.gear-item { display: flex; align-items: center; gap: 0.5rem; }
+.gear-item input[type=checkbox] {
+  width: 18px; height: 18px; flex-shrink: 0;
+  accent-color: var(--moss); cursor: pointer;
+}
+.gear-item label {
+  font-size: 0.78rem; text-transform: none;
+  letter-spacing: 0; color: var(--ink);
+  cursor: pointer; font-weight: 400;
+}
+
+/* Navigation buttons */
+.wiz-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--cream);
+  border-top: 1px solid var(--mist);
+  padding: 0.8rem 1.5rem;
+  padding-bottom: calc(0.8rem + env(safe-area-inset-bottom));
+  display: flex; gap: 0.6rem; justify-content: flex-end;
+  z-index: 20;
+}
+.btn {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem; letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.55rem 1.2rem; border-radius: 4px;
+  cursor: pointer; border: 1.5px solid transparent;
+  transition: all 0.15s; min-height: 44px;
+}
+.btn-primary { background: var(--moss); color: white; border-color: var(--moss); }
+.btn-primary:hover { background: #22381a; }
+.btn-secondary { background: none; border-color: var(--mist); color: var(--smoke); }
+.btn-secondary:hover { border-color: #aaa; }
+.btn:focus-visible { outline: 2px solid var(--moss); outline-offset: 2px; }
+.btn-build {
+  background: var(--clay); color: white; border-color: var(--clay);
+  font-size: 0.78rem; padding: 0.6rem 1.6rem;
+}
+.btn-build:hover { background: #954f1a; }
+
+/* ── APP SCREEN ──────────────────────────────────────────────────────── */
+#appScreen { display: none; }
+
+/* Header */
+header {
+  background: var(--moss); color: var(--paper);
+  padding: 1.8rem 1.5rem 1.5rem;
+  position: relative; overflow: hidden;
+}
+header::after {
+  content: '🌲🌿🌲🌿🌲🌿🌲🌿🌲🌿🌲🌿';
+  position: absolute; bottom: 0; left: 0; right: 0;
+  font-size: 1.4rem; letter-spacing: -4px; opacity: 0.18;
+  line-height: 1; white-space: nowrap; overflow: hidden;
+  pointer-events: none; aria-hidden: true;
+}
+.header-inner { max-width: 680px; margin: 0 auto; position: relative; z-index: 1; }
+.trip-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
+.chip {
+  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 3px; padding: 0.2rem 0.55rem;
+  font-size: 0.65rem; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.chip.warn { background: rgba(184,58,24,0.3); border-color: rgba(184,58,24,0.5); }
+.chip.cold { background: rgba(58,94,110,0.3); border-color: rgba(58,94,110,0.5); }
+.chip.good { background: rgba(90,122,70,0.3); border-color: rgba(90,122,70,0.5); }
+h1 {
+  font-family: 'Libre Baskerville', serif;
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  font-weight: 700; line-height: 1.1; margin-bottom: 0.25rem;
+}
+.subtitle { font-size: 0.7rem; opacity: 0.6; letter-spacing: 0.03em; margin-bottom: 1rem; }
+.progress-wrap { background: rgba(255,255,255,0.1); border-radius: 2px; height: 4px; margin-bottom: 0.3rem; overflow: hidden; }
+.progress-bar { height: 100%; background: var(--clay); width: 0%; transition: width 0.4s; border-radius: 2px; }
+.progress-label { font-size: 0.65rem; opacity: 0.5; }
+
+/* Header edit button */
+.header-edit-btn {
+  position: absolute; top: 1rem; right: 1rem;
+  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.7); border-radius: 4px;
+  padding: 0.3rem 0.7rem; font-family: 'DM Mono', monospace;
+  font-size: 0.62rem; letter-spacing: 0.05em; text-transform: uppercase;
+  cursor: pointer; transition: all 0.15s;
+}
+.header-edit-btn:hover { background: rgba(255,255,255,0.2); color: white; }
+.header-edit-btn:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+
+/* Tab bar */
+.tab-bar-wrap { background: var(--ink); position: relative; max-width: 680px; margin: 0 auto; }
+.tab-bar-wrap::before, .tab-bar-wrap::after {
+  content: ''; position: absolute; top: 0; bottom: 0;
+  width: 28px; pointer-events: none; z-index: 2; transition: opacity 0.2s;
+}
+.tab-bar-wrap::before { left: 0; background: linear-gradient(to right, rgba(28,28,20,0.9), transparent); }
+.tab-bar-wrap::after  { right: 0; background: linear-gradient(to left, rgba(28,28,20,0.9), transparent); }
+.tab-bar-wrap.at-start::before { opacity: 0; }
+.tab-bar-wrap.at-end::after   { opacity: 0; }
+.tab-scroll-btn {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 3;
+  background: rgba(184,114,46,0.8); border: none; color: white;
+  width: 22px; height: 22px; border-radius: 50%;
+  cursor: pointer; font-size: 0.75rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.2s, background 0.15s; padding: 0;
+}
+.tab-scroll-btn.left { left: 3px; }
+.tab-scroll-btn.right { right: 3px; }
+.tab-scroll-btn.hidden { opacity: 0; pointer-events: none; visibility: hidden; }
+.tab-scroll-btn:hover { background: var(--clay); }
+.tab-scroll-btn:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+.tab-bar {
+  display: flex; overflow-x: auto; scrollbar-width: none;
+  scroll-behavior: smooth; -webkit-overflow-scrolling: touch;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab {
+  padding: 0.65rem 0.85rem;
+  font-size: 0.62rem; letter-spacing: 0.06em; text-transform: uppercase;
+  color: rgba(245,240,228,0.45); cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap; flex-shrink: 0;
+  transition: all 0.2s; user-select: none;
+}
+.tab:hover { color: rgba(245,240,228,0.75); }
+.tab.active { color: var(--clay); border-bottom-color: var(--clay); background: rgba(184,114,46,0.08); }
+.tab:focus-visible { outline: 2px solid var(--clay); outline-offset: -2px; }
+
+/* Edit bar */
+.edit-bar {
+  max-width: 680px; margin: 0 auto;
+  padding: 0.5rem 1rem;
+  background: #ede8d8; border-bottom: 1px solid var(--mist);
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  position: sticky; top: 0; z-index: 10;
+}
+.edit-bar-label { font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bark); font-weight: 500; }
+.edit-bar-actions { display: flex; gap: 0.4rem; }
+.btn-edit   { background: none; border-color: var(--bark); color: var(--bark); }
+.btn-edit:hover { background: var(--bark); color: white; }
+.btn-save   { background: var(--moss); color: white; border-color: var(--moss); }
+.btn-save:hover { background: #22381a; }
+.btn-cancel { background: none; border-color: #aaa; color: #666; }
+.btn-cancel:hover { background: #eee; }
+
+/* Main */
+main { max-width: 680px; margin: 0 auto; padding: 1rem 1rem 4rem; }
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* Sections */
+.section { margin-bottom: 1.4rem; }
+.section-header {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--ink); color: var(--paper);
+  border-radius: 4px 4px 0 0;
+}
+.section-header.bark   { background: var(--bark); }
+.section-header.cold   { background: var(--cold); }
+.section-header.clay   { background: var(--clay); }
+.section-header.ember  { background: var(--ember); }
+.section-header.fern   { background: var(--fern); }
+.section-header.purple { background: #5a4070; }
+.section-header.moss   { background: var(--moss); }
+.section-icon { font-size: 0.95rem; }
+.section-title {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 0.88rem; font-weight: 700; flex: 1;
+}
+.section-count {
+  font-size: 0.62rem; background: rgba(255,255,255,0.15);
+  border-radius: 2px; padding: 0.12rem 0.4rem;
+}
+.del-badge {
+  display: none; background: var(--ember); color: white;
+  font-size: 0.58rem; border-radius: 100px; padding: 0.1rem 0.35rem; margin-left: 0.25rem;
+}
+body.edit-mode .del-badge.has-dels { display: inline-block; }
+
+/* Items */
+.items {
+  border: 1px solid var(--mist); border-top: none;
+  border-radius: 0 0 4px 4px; background: var(--cream); overflow: hidden;
+}
+.item-wrap {
+  display: flex; align-items: stretch;
+  border-bottom: 1px solid var(--mist);
+}
+.item-wrap:last-child { border-bottom: none; }
+.del-check {
+  display: none; flex-shrink: 0; width: 44px;
+  align-items: center; justify-content: center;
+  cursor: pointer; background: #fdf0eb;
+  border-right: 1px solid #f0d0c0; user-select: none;
+}
+.del-check-box {
+  width: 20px; height: 20px; border: 2px solid var(--ember);
+  border-radius: 3px; background: white;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.del-check-box .x { display: none; color: white; font-size: 0.62rem; font-weight: 900; }
+.item-wrap.marked-del .del-check { background: #fde0d8; }
+.item-wrap.marked-del .del-check-box { background: var(--ember); border-color: var(--ember); }
+.item-wrap.marked-del .del-check-box .x { display: block; }
+.item-wrap.marked-del .item { opacity: 0.3; text-decoration: line-through; }
+body.edit-mode .del-check { display: flex; }
+body.edit-mode .item { cursor: default !important; }
+body.edit-mode .item:hover { background: none !important; }
+body.edit-mode .item.checked { opacity: 1; text-decoration: none; }
+body.edit-mode .cb { display: none; }
+.item {
+  flex: 1; display: flex; align-items: flex-start; gap: 0.55rem;
+  padding: 0.5rem 0.8rem; cursor: pointer;
+  transition: background 0.12s; min-width: 0; min-height: 44px;
+}
+.item:hover { background: rgba(46,74,34,0.04); }
+.item.checked { opacity: 0.38; }
+.cb {
+  width: 18px; height: 18px; border: 1.5px solid #bbb;
+  border-radius: 2px; flex-shrink: 0; margin-top: 2px;
+  display: flex; align-items: center; justify-content: center;
+  background: white; transition: all 0.15s;
+}
+.item.checked .cb { background: var(--moss); border-color: var(--moss); }
+.tick { display: none; color: white; font-size: 0.58rem; font-weight: 700; }
+.item.checked .tick { display: block; }
+.item:focus-visible { outline: 2px solid var(--moss); outline-offset: -2px; border-radius: 2px; }
+.del-check:focus-visible { outline: 2px solid var(--ember); outline-offset: -2px; }
+.item-body { flex: 1; min-width: 0; }
+.item-name { font-size: 0.8rem; line-height: 1.3; }
+.item-note { font-size: 0.66rem; color: #666; margin-top: 1px; font-style: italic; }
+
+/* Tags */
+.tag {
+  display: inline-block; padding: 0.08rem 0.3rem; border-radius: 2px;
+  font-size: 0.58rem; letter-spacing: 0.04em; text-transform: uppercase;
+  margin-left: 0.3rem; vertical-align: middle;
+}
+.tag.cold  { background: #dbeaf2; color: var(--cold); }
+.tag.kid   { background: #e8f5e0; color: #3a6a20; }
+.tag.fire  { background: #fdebd0; color: var(--bark); }
+.tag.warn  { background: #fde8e0; color: var(--ember); }
+.tag.have  { background: #e0f0e0; color: #2a6a2a; font-weight: 700; }
+.tag.df    { background: #f0e8f8; color: #6a3a9a; }
+
+/* Alerts / info boxes */
+.alert {
+  border-left: 3px solid var(--ember); background: #fdf0eb;
+  padding: 0.65rem 0.8rem; border-radius: 0 4px 4px 0; margin-bottom: 1.1rem;
+}
+.alert-title { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ember); margin-bottom: 0.2rem; font-weight: 600; }
+.alert p { font-size: 0.74rem; line-height: 1.5; color: #555; }
+.info {
+  border-left: 3px solid var(--cold); background: #eaf2f7;
+  padding: 0.65rem 0.8rem; border-radius: 0 4px 4px 0; margin-bottom: 1.1rem;
+}
+.info p { font-size: 0.74rem; line-height: 1.5; color: #444; }
+
+/* Meal plan */
+.meal-day { margin-bottom: 1.1rem; border: 1px solid var(--mist); border-radius: 4px; overflow: hidden; background: var(--cream); }
+.meal-day-header { background: var(--bark); color: var(--paper); padding: 0.45rem 0.8rem; font-family: 'Libre Baskerville', serif; font-size: 0.82rem; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+.meal-day-header span { font-size: 0.62rem; font-family: 'DM Mono', monospace; opacity: 0.7; font-weight: 400; }
+.meal { padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--mist); }
+.meal:last-child { border-bottom: none; }
+.meal-type { font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--clay); margin-bottom: 0.12rem; }
+.meal-name { font-size: 0.8rem; font-family: 'Libre Baskerville', serif; }
+.meal-desc { font-size: 0.65rem; color: #888; margin-top: 0.08rem; font-style: italic; }
+
+/* Alerts page */
+.warnings-section-title {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 0.88rem; font-weight: 700; color: var(--ink);
+  margin: 1.1rem 0 0.55rem; padding-bottom: 0.35rem;
+  border-bottom: 2px solid var(--mist);
+}
+.warnings-section-title:first-child { margin-top: 0; }
+.fire-ban-box { border: 2px solid #d04810; border-radius: 6px; background: #fff8f4; margin-bottom: 1.1rem; overflow: hidden; }
+.fire-ban-header { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.75rem 0.85rem 0.5rem; }
+.fire-ban-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 0.05rem; }
+.fire-ban-body { flex: 1; }
+.fire-ban-title { font-family: 'Libre Baskerville', serif; font-size: 0.85rem; font-weight: 700; color: #b83808; }
+.fire-ban-sub { font-size: 0.7rem; color: #888; margin-top: 0.12rem; }
+.fire-ai-btn {
+  flex-shrink: 0; background: var(--ink); color: var(--paper);
+  border: none; border-radius: 4px; padding: 0.35rem 0.6rem;
+  font-family: 'DM Mono', monospace; font-size: 0.62rem; letter-spacing: 0.04em;
+  cursor: pointer; transition: background 0.15s; white-space: nowrap; align-self: flex-start;
+}
+.fire-ai-btn:hover { background: #3a3a2a; }
+.fire-ai-btn:disabled { opacity: 0.5; cursor: wait; }
+.fire-ai-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.fire-ai-result { margin: 0 0.85rem 0.65rem; border: 1px solid #e0c8b8; border-radius: 4px; background: #fffaf6; }
+.fire-ai-result[hidden] { display: none; }
+.fire-ai-result-inner { padding: 0.65rem 0.75rem; font-size: 0.76rem; line-height: 1.6; color: #333; white-space: pre-wrap; }
+.fire-ai-timestamp { padding: 0.25rem 0.75rem 0.45rem; font-size: 0.62rem; color: #aaa; font-style: italic; border-top: 1px solid #f0e0d0; }
+.fire-ai-spinner { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.fire-ban-links { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; padding: 0 0.85rem 0.55rem; }
+@media (max-width: 400px) { .fire-ban-links { grid-template-columns: 1fr; } }
+.fire-ban-link {
+  display: flex; align-items: center; justify-content: center;
+  padding: 0.5rem; background: #b83808; color: white; border-radius: 4px;
+  text-decoration: none; font-size: 0.68rem; font-family: 'DM Mono', monospace;
+  letter-spacing: 0.02em; transition: background 0.15s; text-align: center;
+}
+.fire-ban-link:hover { background: #8a2800; }
+.fire-ban-link.park { background: var(--moss); }
+.fire-ban-link.park:hover { background: #22381a; }
+.fire-ban-link:focus-visible { outline: 2px solid #b83808; outline-offset: 2px; }
+.fire-ban-note { padding: 0.35rem 0.85rem 0.6rem; font-size: 0.65rem; color: #999; font-style: italic; border-top: 1px solid #f0d8cc; }
+.park-alerts-box { border: 1.5px solid var(--mist); border-radius: 6px; background: var(--cream); margin-bottom: 1.1rem; overflow: hidden; }
+.park-alerts-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 0.85rem; background: var(--ink); color: var(--paper); font-family: 'Libre Baskerville', serif; font-size: 0.85rem; font-weight: 700; }
+.park-alerts-live-btn { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 0.62rem; letter-spacing: 0.04em; background: var(--clay); color: white; padding: 0.18rem 0.55rem; border-radius: 3px; text-decoration: none; transition: background 0.15s; white-space: nowrap; }
+.park-alerts-live-btn:hover { background: #905010; }
+.park-alert-item { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.55rem 0.85rem; border-bottom: 1px solid var(--mist); font-size: 0.76rem; line-height: 1.5; }
+.park-alert-item:last-of-type { border-bottom: none; }
+.park-alert-item--cleared { opacity: 0.5; }
+.park-alert-badge { flex-shrink: 0; margin-top: 0.12rem; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.06em; padding: 0.12rem 0.35rem; border-radius: 2px; background: var(--ember); color: white; font-family: 'DM Mono', monospace; }
+.park-alert-badge--cleared { background: var(--moss); }
+.park-alert-item p { font-size: 0.7rem; color: #555; margin-top: 0.15rem; }
+.park-alerts-footer { padding: 0.45rem 0.85rem; font-size: 0.65rem; color: #999; font-style: italic; border-top: 1px solid var(--mist); }
+.links-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+@media (max-width: 380px) { .links-grid { grid-template-columns: 1fr; } }
+.park-link { display: flex; align-items: center; gap: 0.45rem; padding: 0.6rem 0.7rem; border: 1.5px solid var(--mist); border-radius: 4px; background: var(--cream); text-decoration: none; color: var(--ink); font-size: 0.72rem; transition: all 0.15s; }
+.park-link:hover { border-color: var(--cold); background: #eaf2f7; }
+.park-link:focus-visible { outline: 2px solid var(--moss); outline-offset: 2px; }
+.park-link-icon { font-size: 1rem; flex-shrink: 0; }
+.park-link-body { flex: 1; min-width: 0; }
+.park-link-title { font-weight: 500; font-size: 0.72rem; line-height: 1.2; }
+.park-link-sub { font-size: 0.6rem; color: #888; margin-top: 0.08rem; }
+.park-link-arrow { color: #ccc; font-size: 0.78rem; }
+.last-checked { text-align: center; font-size: 0.6rem; color: #aaa; margin-top: 0.8rem; font-style: italic; }
+.gear-nudge { display: flex; align-items: center; gap: 0.45rem; background: #fff8f0; border: 1.5px solid #e8c888; border-radius: 4px; padding: 0.55rem 0.75rem; font-size: 0.76rem; color: #6a3e10; margin-bottom: 1.1rem; }
+.nudge-btn { background: none; border: none; padding: 0; color: var(--cold); text-decoration: underline; cursor: pointer; font-family: 'DM Mono', monospace; font-size: 0.76rem; }
+
+/* Reset btn */
+.reset-btn {
+  display: block; margin: 1.4rem auto 0;
+  background: none; border: 1.5px solid var(--moss); color: var(--moss);
+  padding: 0.45rem 1.4rem; border-radius: 2px;
+  font-family: 'DM Mono', monospace; font-size: 0.7rem; letter-spacing: 0.06em;
+  text-transform: uppercase; cursor: pointer; transition: all 0.2s;
+}
+.reset-btn:hover { background: var(--moss); color: var(--paper); }
+.reset-btn:focus-visible { outline: 2px solid var(--moss); outline-offset: 2px; }
+
+/* ── AUTO-FILL ───────────────────────────────────────────── */
+.autofill-row {
+  display: flex; gap: 0.5rem; align-items: stretch;
+}
+.autofill-row input { flex: 1; }
+.btn-autofill {
+  flex-shrink: 0;
+  background: var(--moss); color: white; border: none;
+  border-radius: 4px; padding: 0 1rem;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem; letter-spacing: 0.04em;
+  cursor: pointer; white-space: nowrap;
+  transition: background 0.15s; min-height: 44px;
+}
+.btn-autofill:hover { background: #22381a; }
+.btn-autofill:disabled { opacity: 0.5; cursor: wait; }
+.btn-autofill:focus-visible { outline: 2px solid var(--moss); outline-offset: 2px; }
+
+.autofill-result {
+  margin-bottom: 1rem;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1.5px solid var(--mist);
+}
+.autofill-result[hidden] { display: none; }
+.autofill-result-inner {
+  padding: 0.7rem 0.9rem;
+  font-size: 0.76rem; line-height: 1.6; color: #444;
+  white-space: pre-wrap;
+}
+.autofill-result.success { border-color: var(--fern); background: #eef4e8; }
+.autofill-result.success .autofill-result-inner { color: var(--moss); }
+.autofill-result.error { border-color: var(--ember); background: #fdf0eb; }
+.autofill-result.error .autofill-result-inner { color: #a03010; }
+.autofill-result.loading { border-color: var(--mist); background: #f8f5ee; }
+.autofill-result.loading .autofill-result-inner { color: #888; font-style: italic; }
+
+.autofill-fields-header {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.45rem 0.7rem;
+  background: #eef4e8; border: 1.5px solid var(--sage);
+  border-radius: 4px; margin-bottom: 0.8rem;
+}
+.autofill-fields-header[hidden] { display: none; }
+.autofill-fields-label {
+  font-size: 0.68rem; color: var(--moss);
+  font-weight: 500; letter-spacing: 0.04em;
+}
+.field input.autofilled {
+  border-color: var(--sage);
+  background: #f4faf0;
+}
+
+/* Suggested walk entries */
+.walk-entry--suggested {
+  border-color: var(--sage);
+  background: #f4faf0;
+}
+.walk-entry-note {
+  font-size: 0.68rem;
+  color: var(--smoke);
+  font-style: italic;
+  padding: 0.1rem 0.2rem;
+}
+
+@media (forced-colors: active) {
+  .cb, .del-check-box { border: 2px solid ButtonText; }
+  .item.checked .cb { background: Highlight; }
+  .tag { border: 1px solid ButtonText; }
+}
+</style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<div id="a11y-announce" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     WIZARD SCREEN
+══════════════════════════════════════════════════════════ -->
+<div id="wizardScreen">
+  <div class="wiz-hero">
+    <div class="wiz-hero-inner">
+      <p class="wiz-eyebrow">Camp Planner</p>
+      <h1 class="wiz-title">Plan Your Trip</h1>
+      <p class="wiz-subtitle">Answer a few questions and your personalised packing list builds itself.</p>
+    </div>
+  </div>
+
+  <!-- Saved trips bar -->
+  <div class="trips-bar" id="tripsBar">
+    <span class="trips-bar-label">Trips</span>
+    <div class="trips-scroll" id="tripsScroll" role="list" aria-label="Saved trips"></div>
+    <button class="btn-new-trip" id="btnNewTrip" aria-label="Start a new trip">+ New</button>
+  </div>
+
+  <div class="wiz-progress">
+    <div class="wiz-steps" id="wizSteps" role="progressbar" aria-label="Setup progress" aria-valuenow="1" aria-valuemax="7">
+      <!-- dots injected by JS -->
+    </div>
+    <p class="wiz-step-label" id="wizStepLabel">Step 1 of 7</p>
+  </div>
+
+  <div class="wiz-body" id="wizBody">
+
+    <!-- STEP 1: Trip basics -->
+    <div class="wiz-section active" id="wiz-step-1">
+      <h2 class="wiz-section-title">Trip basics</h2>
+      <p class="wiz-section-desc">Tell us about the trip.</p>
+      <div class="field">
+        <label for="tripName">Trip name</label>
+        <input type="text" id="tripName" placeholder="e.g. Booloumba Creek July" autocomplete="off">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="dateFrom">Arrival date</label>
+          <input type="date" id="dateFrom">
+        </div>
+        <div class="field">
+          <label for="dateTo">Departure date</label>
+          <input type="date" id="dateTo">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="numAdults">Adults</label>
+          <select id="numAdults">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="numKids">Kids</label>
+          <select id="numKids">
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" id="kidsAgeField">
+        <label for="kidsAges">Kids' ages (helps with packing items)</label>
+        <input type="text" id="kidsAges" placeholder="e.g. 3, 7" autocomplete="off">
+        <p class="field-hint">Separate multiple ages with a comma</p>
+      </div>
+    </div>
+
+    <!-- STEP 2: Location -->
+    <div class="wiz-section" id="wiz-step-2">
+      <h2 class="wiz-section-title">Location</h2>
+      <p class="wiz-section-desc">Type the park name and tap <strong>Auto-fill</strong> — we'll find the rest automatically.</p>
+
+      <!-- Park name + auto-fill -->
+      <div class="field">
+        <label for="parkName">National park or reserve name</label>
+        <div class="autofill-row">
+          <input type="text" id="parkName" placeholder="e.g. Conondale National Park" autocomplete="off"
+            aria-describedby="autofillHint">
+          <button class="btn btn-autofill" id="autofillBtn" onclick="autofillParkDetails()" aria-label="Auto-fill park details">
+            <span id="autofillBtnLabel">✨ Auto-fill</span>
+          </button>
+        </div>
+        <p class="field-hint" id="autofillHint">Works for any Australian national park — fills nearest town, parks URL, BOM town and fire danger region automatically.</p>
+      </div>
+
+      <!-- Auto-fill status box -->
+      <div class="autofill-result" id="autofillResult" hidden aria-live="polite">
+        <div class="autofill-result-inner" id="autofillResultInner"></div>
+      </div>
+
+      <div class="field">
+        <label for="campsiteName">Campsite / area name</label>
+        <input type="text" id="campsiteName" placeholder="e.g. Booloumba Creek Area 3, Site 19" autocomplete="off">
+      </div>
+
+      <!-- Auto-fillable fields — populated by AI, editable by user -->
+      <div class="autofill-fields" id="autofillFields">
+        <div class="autofill-fields-header" id="autofillFieldsHeader" hidden>
+          <span class="autofill-fields-label">✨ Auto-filled — check and adjust if needed</span>
+        </div>
+        <div class="field">
+          <label for="nearestTown">Nearest town (for weather + last shops)</label>
+          <input type="text" id="nearestTown" placeholder="e.g. Kenilworth" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="parksUrl">Parks website URL (for live alerts)</label>
+          <input type="url" id="parksUrl" placeholder="e.g. https://parks.qld.gov.au/parks/conondale" autocomplete="off">
+          <p class="field-hint">Auto-filled from the official parks website</p>
+        </div>
+        <div class="field">
+          <label for="bomTown">BOM weather forecast town slug</label>
+          <input type="text" id="bomTown" placeholder="e.g. sunshine-coast" autocomplete="off">
+          <p class="field-hint">The part after /qld/forecasts/ in the BOM URL</p>
+        </div>
+        <div class="field">
+          <label for="fireDangerRegion">Fire danger region</label>
+          <input type="text" id="fireDangerRegion" placeholder="e.g. Sunshine Coast hinterland" autocomplete="off">
+          <p class="field-hint">Used for the live fire ban check in your app</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: Site type -->
+    <div class="wiz-section" id="wiz-step-3">
+      <h2 class="wiz-section-title">Site & access</h2>
+      <p class="wiz-section-desc">What's the campsite like?</p>
+
+      <label class="field" style="font-size:0.72rem;letter-spacing:0.05em;text-transform:uppercase;color:var(--smoke);font-weight:500;margin-bottom:0.5rem;display:block">Power available?</label>
+      <div class="card-group cols-3" role="radiogroup" aria-label="Power available">
+        <div class="card-option"><input type="radio" name="power" id="powerMains" value="mains"><label for="powerMains"><span class="card-icon">⚡</span><span class="card-text">Powered site<span class="card-sub">Mains power</span></span></label></div>
+        <div class="card-option"><input type="radio" name="power" id="powerSolar" value="solar" checked><label for="powerSolar"><span class="card-icon">☀️</span><span class="card-text">Solar only<span class="card-sub">Own setup</span></span></label></div>
+        <div class="card-option"><input type="radio" name="power" id="powerNone" value="none"><label for="powerNone"><span class="card-icon">🔦</span><span class="card-text">No power<span class="card-sub">Battery/torches</span></span></label></div>
+      </div>
+
+      <label class="field" style="font-size:0.72rem;letter-spacing:0.05em;text-transform:uppercase;color:var(--smoke);font-weight:500;margin:0.8rem 0 0.5rem;display:block">Road access</label>
+      <div class="card-group cols-2" role="radiogroup" aria-label="Road access type">
+        <div class="card-option"><input type="radio" name="access" id="accessSealed" value="sealed"><label for="accessSealed"><span class="card-icon">🛣️</span><span class="card-text">Sealed road<span class="card-sub">Any vehicle</span></span></label></div>
+        <div class="card-option"><input type="radio" name="access" id="accessGravel" value="gravel" checked><label for="accessGravel"><span class="card-icon">🪨</span><span class="card-text">Gravel / dirt<span class="card-sub">High clearance ok</span></span></label></div>
+        <div class="card-option"><input type="radio" name="access" id="access4wd" value="4wd"><label for="access4wd"><span class="card-icon">🚙</span><span class="card-text">4WD required<span class="card-sub">Creek crossings</span></span></label></div>
+        <div class="card-option"><input type="radio" name="access" id="accessWalkin" value="walkin"><label for="accessWalkin"><span class="card-icon">🥾</span><span class="card-text">Walk-in only<span class="card-sub">No vehicle</span></span></label></div>
+      </div>
+
+      <label class="field" style="font-size:0.72rem;letter-spacing:0.05em;text-transform:uppercase;color:var(--smoke);font-weight:500;margin:0.8rem 0 0.5rem;display:block">Facilities on site</label>
+      <div class="card-group cols-2" role="group" aria-label="Facilities">
+        <div class="card-option"><input type="checkbox" id="facToilets" checked><label for="facToilets"><span class="card-icon">🚻</span><span class="card-text">Toilets</span></label></div>
+        <div class="card-option"><input type="checkbox" id="facShowers"><label for="facShowers"><span class="card-icon">🚿</span><span class="card-text">Showers</span></label></div>
+        <div class="card-option"><input type="checkbox" id="facFirepit" checked><label for="facFirepit"><span class="card-icon">🔥</span><span class="card-text">Fire rings</span></label></div>
+        <div class="card-option"><input type="checkbox" id="facWater" checked><label for="facWater"><span class="card-icon">💧</span><span class="card-text">Water (treat)</span></label></div>
+      </div>
+    </div>
+
+    <!-- STEP 4: Sleeping & shelter -->
+    <div class="wiz-section" id="wiz-step-4">
+      <h2 class="wiz-section-title">Sleeping & shelter</h2>
+      <p class="wiz-section-desc">What are you sleeping in?</p>
+
+      <label class="field" style="font-size:0.72rem;letter-spacing:0.05em;text-transform:uppercase;color:var(--smoke);font-weight:500;margin-bottom:0.5rem;display:block">Sleeping setup (adults)</label>
+      <div class="card-group cols-2" role="radiogroup" aria-label="Adult sleeping setup">
+        <div class="card-option"><input type="radio" name="sleeping" id="sleepSwag" value="swag" checked><label for="sleepSwag"><span class="card-icon">🛏</span><span class="card-text">Swag<span class="card-sub">Single or double</span></span></label></div>
+        <div class="card-option"><input type="radio" name="sleeping" id="sleepTent" value="tent"><label for="sleepTent"><span class="card-icon">⛺</span><span class="card-text">Tent<span class="card-sub">Freestanding</span></span></label></div>
+        <div class="card-option"><input type="radio" name="sleeping" id="sleepCamper" value="camper"><label for="sleepCamper"><span class="card-icon">🚐</span><span class="card-text">Camper trailer<span class="card-sub">Or caravan</span></span></label></div>
+        <div class="card-option"><input type="radio" name="sleeping" id="sleepOther" value="other"><label for="sleepOther"><span class="card-icon">💤</span><span class="card-text">Other</span></label></div>
+      </div>
+
+      <label class="field" style="font-size:0.72rem;letter-spacing:0.05em;text-transform:uppercase;color:var(--smoke);font-weight:500;margin:0.8rem 0 0.5rem;display:block">Kids sleeping setup</label>
+      <div class="card-group cols-2" role="radiogroup" aria-label="Kids sleeping setup" id="kidsSleepGroup">
+        <div class="card-option"><input type="radio" name="kidsSleep" id="kidsCot" value="cot" checked><label for="kidsCot"><span class="card-icon">🛏</span><span class="card-text">Travel cot</span></label></div>
+        <div class="card-option"><input type="radio" name="kidsSleep" id="kidsBag" value="bag"><label for="kidsBag"><span class="card-icon">🛌</span><span class="card-text">Sleeping bag</span></label></div>
+        <div class="card-option"><input type="radio" name="kidsSleep" id="kidsSwag" value="swag"><label for="kidsSwag"><span class="card-icon">🛏</span><span class="card-text">Mini swag</span></label></div>
+        <div class="card-option"><input type="radio" name="kidsSleep" id="kidsInside" value="inside"><label for="kidsInside"><span class="card-icon">🤝</span><span class="card-text">With adults</span></label></div>
+      </div>
+    </div>
+
+    <!-- STEP 5: Food & diet -->
+    <div class="wiz-section" id="wiz-step-5">
+      <h2 class="wiz-section-title">Food & diet</h2>
+      <p class="wiz-section-desc">So the grocery list and meals are right for your group.</p>
+
+      <label class="field" style="font-size:0.72rem;letter-spacing:0.05em;text-transform:uppercase;color:var(--smoke);font-weight:500;margin-bottom:0.5rem;display:block">Dietary requirements (select all that apply)</label>
+      <div class="card-group cols-2" role="group" aria-label="Dietary requirements">
+        <div class="card-option"><input type="checkbox" id="dietNone" checked><label for="dietNone"><span class="card-icon">🍽️</span><span class="card-text">No restrictions</span></label></div>
+        <div class="card-option"><input type="checkbox" id="dietDF"><label for="dietDF"><span class="card-icon">🥛</span><span class="card-text">Dairy free</span></label></div>
+        <div class="card-option"><input type="checkbox" id="dietGF"><label for="dietGF"><span class="card-icon">🌾</span><span class="card-text">Gluten free</span></label></div>
+        <div class="card-option"><input type="checkbox" id="dietVeg"><label for="dietVeg"><span class="card-icon">🥦</span><span class="card-text">Vegetarian</span></label></div>
+        <div class="card-option"><input type="checkbox" id="dietVegan"><label for="dietVegan"><span class="card-icon">🌱</span><span class="card-text">Vegan</span></label></div>
+        <div class="card-option"><input type="checkbox" id="dietNuts"><label for="dietNuts"><span class="card-icon">🥜</span><span class="card-text">Nut free</span></label></div>
+      </div>
+
+      <label class="field" style="font-size:0.72rem;letter-spacing:0.05em;text-transform:uppercase;color:var(--smoke);font-weight:500;margin:0.8rem 0 0.5rem;display:block">Cooking style</label>
+      <div class="card-group cols-2" role="radiogroup" aria-label="Cooking style">
+        <div class="card-option"><input type="radio" name="cooking" id="cookEasy" value="easy" checked><label for="cookEasy"><span class="card-icon">⚡</span><span class="card-text">Easy / pre-bought<span class="card-sub">Minimal prep</span></span></label></div>
+        <div class="card-option"><input type="radio" name="cooking" id="cookMix" value="mix"><label for="cookMix"><span class="card-icon">🍳</span><span class="card-text">Mix<span class="card-sub">1 cook-up/day</span></span></label></div>
+        <div class="card-option"><input type="radio" name="cooking" id="cookProper" value="proper"><label for="cookProper"><span class="card-icon">👨‍🍳</span><span class="card-text">Proper cooking<span class="card-sub">Full meals</span></span></label></div>
+        <div class="card-option"><input type="radio" name="cooking" id="cookFire" value="fire"><label for="cookFire"><span class="card-icon">🔥</span><span class="card-text">Fire cooking<span class="card-sub">Mostly campfire</span></span></label></div>
+      </div>
+    </div>
+
+    <!-- STEP 6: Walks -->
+    <div class="wiz-section" id="wiz-step-6">
+      <h2 class="wiz-section-title">Walks & hikes</h2>
+      <p class="wiz-section-desc" id="step6Desc">If you used Auto-fill in Step 2, walks are already pre-filled below. Edit, remove or add more — up to 8.</p>
+      <div class="walk-list" id="walkList">
+        <div class="walk-entry">
+          <div class="walk-entry-num">1</div>
+          <div class="walk-entry-fields">
+            <input type="text" placeholder="Walk name (e.g. Booloumba Falls)" class="walk-name">
+            <input type="url" placeholder="AllTrails link (optional)" class="walk-url">
+          </div>
+        </div>
+        <div class="walk-entry">
+          <div class="walk-entry-num">2</div>
+          <div class="walk-entry-fields">
+            <input type="text" placeholder="Walk name" class="walk-name">
+            <input type="url" placeholder="AllTrails link (optional)" class="walk-url">
+          </div>
+        </div>
+        <div class="walk-entry">
+          <div class="walk-entry-num">3</div>
+          <div class="walk-entry-fields">
+            <input type="text" placeholder="Walk name" class="walk-name">
+            <input type="url" placeholder="AllTrails link (optional)" class="walk-url">
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-secondary" id="addWalkBtn" style="font-size:0.7rem;min-height:36px">+ Add another walk</button>
+    </div>
+
+    <!-- STEP 7: Gear you own -->
+    <div class="wiz-section" id="wiz-step-7">
+      <h2 class="wiz-section-title">Gear you already have</h2>
+      <p class="wiz-section-desc">Tick what you own — these will be marked as HAVE in your list.</p>
+      <div class="gear-grid" id="gearGrid">
+        <!-- injected by JS -->
+      </div>
+    </div>
+
+  </div><!-- /.wiz-body -->
+
+  <nav class="wiz-nav" aria-label="Wizard navigation">
+    <button class="btn btn-secondary" id="wizBack" onclick="wizNav(-1)" style="display:none">← Back</button>
+    <button class="btn btn-primary" id="wizNext" onclick="wizNav(1)">Next →</button>
+    <button class="btn btn-build" id="wizBuild" onclick="buildApp()" style="display:none">Build my list 🏕️</button>
+  </nav>
+</div><!-- /#wizardScreen -->
+
+
+<!-- ══════════════════════════════════════════════════════════
+     APP SCREEN (generated)
+══════════════════════════════════════════════════════════ -->
+<div id="appScreen">
+
+  <!-- Save bar -->
+  <div class="save-bar" id="saveBar">
+    <div class="save-bar-left">
+      <span>💾</span>
+      <span class="save-bar-name" id="saveBarName">Unsaved trip</span>
+      <span class="save-status" id="saveStatus"></span>
+    </div>
+    <div class="save-bar-actions">
+      <button class="btn-trips-list" id="btnTripsList" aria-label="View saved trips">📋 My trips</button>
+      <button class="btn-save-trip" id="btnSaveTrip" aria-label="Save current trip">Save</button>
+    </div>
+  </div>
+
+  <header>
+    <div class="header-inner">
+      <button class="header-edit-btn" onclick="returnToWizard()" aria-label="Edit trip settings">✏️ Edit trip</button>
+      <div class="trip-meta" id="appChips"></div>
+      <h1 id="appTitle">My Camping Trip</h1>
+      <p class="subtitle" id="appSubtitle"></p>
+      <div class="progress-wrap"><div class="progress-bar" id="prog" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Packing progress"></div></div>
+      <p class="progress-label" id="progLabel">0 of 0 items packed</p>
+    </div>
+  </header>
+
+  <div class="tab-bar-wrap" id="tabWrap">
+    <button class="tab-scroll-btn left hidden" id="scrollLeft" aria-label="Scroll tabs left">&#8249;</button>
+    <button class="tab-scroll-btn right" id="scrollRight" aria-label="Scroll tabs right">&#8250;</button>
+    <div class="tab-bar" id="tabBar" role="tablist" aria-label="Packing categories">
+      <!-- tabs injected by JS -->
+    </div>
+  </div>
+
+  <div class="edit-bar" id="editBar">
+    <span class="edit-bar-label" id="editBarLabel">Tap ✏️ to edit lists</span>
+    <div class="edit-bar-actions">
+      <button class="btn btn-edit" id="btnEdit">✏️ Edit</button>
+      <button class="btn btn-cancel" id="btnCancel" style="display:none">Cancel</button>
+      <button class="btn btn-save" id="btnSave" style="display:none">Save changes</button>
+    </div>
+  </div>
+
+  <main id="main-content" aria-label="Packing lists">
+    <!-- panels injected by JS -->
+  </main>
+
+</div><!-- /#appScreen -->
+
+<script>
+
+// ── API Proxy Configuration ────────────────────────────────────────────────────
+// Set this to your Cloudflare Worker URL after deployment
+// e.g. 'https://camping-app-proxy.yourusername.workers.dev'
+// Leave as empty string to use direct Anthropic API (Claude.ai only)
+const PROXY_URL = '';
+
+function getApiUrl() {
+  return PROXY_URL ? PROXY_URL : 'https://api.anthropic.com';
+}
+
+function getApiHeaders() {
+  // When using proxy, no API key needed in browser — Worker handles it
+  // When using direct (Claude.ai), no key needed either — Claude.ai injects it
+  return { 'Content-Type': 'application/json' };
+}
+// ══════════════════════════════════════════════════════════════════════
+// WIZARD LOGIC
+// ══════════════════════════════════════════════════════════════════════
+
+const TOTAL_STEPS = 7;
+let currentStep = 1;
+
+const ownableGear = [
+  'Marquee / shelter',
+  'Inner tent',
+  'Camp table(s)',
+  'Ground mat / tarp',
+  'Camp chairs',
+  'Camp stove',
+  'Gas canisters',
+  'Folding trolley',
+  'Camp fridge / esky',
+  '12V fridge (Kings Escape etc.)',
+  'Solar panel',
+  '12V power pack',
+  '12V heated blanket',
+  'Self-inflating mattress',
+  'Child carrier / hiking pack',
+  'Cast iron pan',
+  'Trekking poles',
+  'Portable potty',
+  'Travel cot',
+  'Water filter',
+];
+
+// Build gear grid
+function buildGearGrid() {
+  const grid = document.getElementById('gearGrid');
+  grid.innerHTML = ownableGear.map((g, i) => `
+    <div class="gear-item">
+      <input type="checkbox" id="gear_${i}" value="${g}">
+      <label for="gear_${i}">${g}</label>
+    </div>`).join('');
+}
+buildGearGrid();
+
+// Build wizard progress dots
+function renderWizDots() {
+  const container = document.getElementById('wizSteps');
+  container.innerHTML = Array.from({length: TOTAL_STEPS}, (_, i) => {
+    const n = i + 1;
+    const cls = n < currentStep ? 'done' : n === currentStep ? 'active' : '';
+    return `<div class="wiz-step-dot ${cls}" aria-hidden="true"></div>`;
+  }).join('');
+  container.setAttribute('aria-valuenow', currentStep);
+  document.getElementById('wizStepLabel').textContent = `Step ${currentStep} of ${TOTAL_STEPS}`;
+}
+renderWizDots();
+
+// Show/hide kids fields based on count
+document.getElementById('numKids').addEventListener('change', e => {
+  document.getElementById('kidsAgeField').style.display = parseInt(e.target.value) > 0 ? 'block' : 'none';
+});
+
+// Add walk entry
+let walkCount = 3;
+document.getElementById('addWalkBtn').addEventListener('click', () => {
+  if (walkCount >= 8) return;
+  walkCount++;
+  const entry = document.createElement('div');
+  entry.className = 'walk-entry';
+  entry.innerHTML = `
+    <div class="walk-entry-num">${walkCount}</div>
+    <div class="walk-entry-fields">
+      <input type="text" placeholder="Walk name" class="walk-name">
+      <input type="url" placeholder="AllTrails link (optional)" class="walk-url">
+    </div>`;
+  document.getElementById('walkList').appendChild(entry);
+  if (walkCount >= 8) document.getElementById('addWalkBtn').style.display = 'none';
+});
+
+function wizNav(dir) {
+  const newStep = currentStep + dir;
+  if (newStep < 1 || newStep > TOTAL_STEPS) return;
+
+  document.getElementById(`wiz-step-${currentStep}`).classList.remove('active');
+  currentStep = newStep;
+  document.getElementById(`wiz-step-${currentStep}`).classList.add('active');
+
+  renderWizDots();
+
+  // Button visibility
+  document.getElementById('wizBack').style.display = currentStep > 1 ? 'block' : 'none';
+  document.getElementById('wizNext').style.display = currentStep < TOTAL_STEPS ? 'block' : 'none';
+  document.getElementById('wizBuild').style.display = currentStep === TOTAL_STEPS ? 'block' : 'none';
+
+  window.scrollTo({top: 0, behavior: 'smooth'});
+  announce(`Step ${currentStep} of ${TOTAL_STEPS}`);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// READ CONFIG FROM WIZARD
+// ══════════════════════════════════════════════════════════════════════
+function readConfig() {
+  const get = id => document.getElementById(id)?.value?.trim() || '';
+  const checked = id => document.getElementById(id)?.checked || false;
+  const radio = name => document.querySelector(`input[name="${name}"]:checked`)?.value || '';
+
+  const walks = [...document.querySelectorAll('.walk-entry')].map(e => ({
+    name: e.querySelector('.walk-name').value.trim(),
+    url:  e.querySelector('.walk-url').value.trim(),
+  })).filter(w => w.name);
+
+  const ownedGear = [...document.querySelectorAll('#gearGrid input:checked')].map(i => i.value);
+
+  const diets = [];
+  if (checked('dietDF'))   diets.push('dairy free');
+  if (checked('dietGF'))   diets.push('gluten free');
+  if (checked('dietVeg'))  diets.push('vegetarian');
+  if (checked('dietVegan')) diets.push('vegan');
+  if (checked('dietNuts')) diets.push('nut free');
+
+  // Figure out season from dates
+  const dateFrom = get('dateFrom');
+  let season = 'unknown';
+  if (dateFrom) {
+    const m = new Date(dateFrom).getMonth() + 1;
+    if ([12,1,2].includes(m))  season = 'summer';
+    else if ([3,4,5].includes(m)) season = 'autumn';
+    else if ([6,7,8].includes(m)) season = 'winter';
+    else season = 'spring';
+  }
+
+  return {
+    tripName:      get('tripName') || 'My Camping Trip',
+    dateFrom:      get('dateFrom'),
+    dateTo:        get('dateTo'),
+    numAdults:     parseInt(get('numAdults')) || 2,
+    numKids:       parseInt(get('numKids')) || 0,
+    kidsAges:      get('kidsAges'),
+    parkName:      get('parkName') || 'National Park',
+    campsiteName:  get('campsiteName') || 'Campsite',
+    nearestTown:   get('nearestTown') || '',
+    parksUrl:      get('parksUrl') || 'https://parks.qld.gov.au',
+    bomTown:       get('bomTown') || 'brisbane',
+    fireDangerRegion: get('fireDangerRegion') || 'Southeast Queensland',
+    power:         radio('power') || 'solar',
+    access:        radio('access') || 'gravel',
+    hasToilets:    checked('facToilets'),
+    hasShowers:    checked('facShowers'),
+    hasFirepit:    checked('facFirepit'),
+    hasWater:      checked('facWater'),
+    sleeping:      radio('sleeping') || 'swag',
+    kidsSleep:     radio('kidsSleep') || 'cot',
+    diets,
+    cooking:       radio('cooking') || 'mix',
+    walks,
+    ownedGear,
+    season,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SECTION GENERATORS
+// ══════════════════════════════════════════════════════════════════════
+
+function genGear(c) {
+  const items = [];
+  const have = g => c.ownedGear.some(o => o.toLowerCase().includes(g.toLowerCase()));
+
+  if (have('marquee') || have('shelter'))
+    items.push({name:'Marquee / shelter', note:'HAVE — main shelter sorted', tag:'have'});
+  else
+    items.push({name:'Tent or tarp shelter', note:'For daytime shade and wet weather'});
+
+  if (have('inner tent'))
+    items.push({name:'Inner tent', note:'HAVE', tag:'have'});
+
+  if (have('table'))
+    items.push({name:'Camp table(s)', note:'HAVE', tag:'have'});
+  else
+    items.push({name:'Folding camp table × 1–2'});
+
+  if (have('ground mat') || have('tarp'))
+    items.push({name:'Ground mat / tarpaulin', note:'HAVE', tag:'have'});
+  else
+    items.push({name:'Ground mat / tarpaulin under sleeping area', note:'Granite pads can be cold and damp'});
+
+  const chairs = have('camp chairs') ? {name:'Camp chairs', note:'HAVE', tag:'have'} : {name:`Camp chairs × ${c.numAdults}`};
+  items.push(chairs);
+
+  if (c.numKids > 0) items.push({name:'Small kids\' chair or camp mat', tag:'kid'});
+
+  items.push({name:'Mallet + extra pegs + guy ropes'});
+  items.push({name:`Headtorches × ${c.numAdults} + spare batteries`, note:'One per adult — no camp lighting on site'});
+  items.push({name:'Battery LED lantern', note:'For inside shelter at night'});
+
+  if (c.hasFirepit) {
+    if (have('camp stove'))
+      items.push({name:'Camp stove + gas canisters', note:'HAVE', tag:'have'});
+    else
+      items.push({name:'Camp stove + 2 × gas canisters', note:'Primary cooking method'});
+    items.push({name:'Milled firewood (2–3 bags)', note:'Bring your own — cannot collect in park', tag:'fire'});
+    items.push({name:'Fire poker + grill grate + long lighter', tag:'fire'});
+  }
+
+  if (have('trolley'))
+    items.push({name:'Fold-up trolley', note:'HAVE', tag:'have'});
+  else
+    items.push({name:'Fold-up trolley or gear carry straps', note:'Essential for carrying gear from car to site', tag:'warn'});
+
+  items.push({name:'Outdoor camp rug / mat', note: c.numKids > 0 ? 'Kids play zone' : 'For sitting around camp'});
+  items.push({name:'Rubbish bags × 4', note:'Carry all waste out — no bins on site'});
+  items.push({name:'Cable ties + gaffer tape', note:'Repairs, general fixes'});
+  if (c.power !== 'mains') items.push({name:'Rope / washing line + pegs'});
+
+  return items;
+}
+
+function genSleeping(c) {
+  const items = [];
+  const have = g => c.ownedGear.some(o => o.toLowerCase().includes(g.toLowerCase()));
+  const cold = ['winter','autumn'].includes(c.season);
+
+  if (c.sleeping === 'swag') {
+    items.push({name:'Double swag (aired out + clean)'});
+    if (have('self-inflating') || have('mattress'))
+      items.push({name:'Self-inflating foam mattress', note:'HAVE — insulation and comfort under swag', tag:'have'});
+    else
+      items.push({name:'Self-inflating or foam mat under swag', note:'Insulation from cold/damp ground', tag: cold ? 'cold' : null});
+  } else if (c.sleeping === 'tent') {
+    items.push({name:'Tent (aired out + clean with all poles + pegs)'});
+    items.push({name:'Sleeping bags — adult × ' + c.numAdults, tag: cold ? 'cold' : null});
+  } else if (c.sleeping === 'camper') {
+    items.push({name:'Camper trailer / caravan (checked + stocked)'});
+    items.push({name:'Camper bedding checked', note:'Sheets, pillow cases, blankets all packed'});
+  }
+
+  if (have('heated blanket') || have('12v heated'))
+    items.push({name:'12V Heated Blanket', note:'HAVE — pre-warm sleeping area 1–2hrs before bed', tag:'have'});
+  else if (cold)
+    items.push({name:'Extra blanket or sleeping bag liner × 2', note:'July nights can reach 5–8°C in creek valleys', tag:'cold'});
+
+  if (c.numKids > 0) {
+    if (c.kidsSleep === 'cot')
+      items.push({name:'Travel cot + fitted sheet', note: cold ? '+ warm layer on top' : '', tag:'kid'});
+    else if (c.kidsSleep === 'bag')
+      items.push({name:'Kids sleeping bag (rated for ' + c.season + ')', tag:'kid'});
+    else if (c.kidsSleep === 'swag')
+      items.push({name:'Kids mini swag or small sleeping bag', tag:'kid'});
+    if (cold) items.push({name:'Warm pyjamas + sleep sack for kids', tag:'kid'});
+  }
+
+  if (cold) items.push({name:'Emergency space blanket × 2', note:'Backup if colder than forecast', tag:'cold'});
+  items.push({name:`Pillows × ${c.numAdults + c.numKids}`});
+  if (cold) items.push({name:'Beanie + thermal socks to sleep in (per person)', tag:'cold'});
+  items.push({name:'Battery night light', tag: c.numKids > 0 ? 'kid' : null, note:'Essential for finding your way at night'});
+
+  return items.filter(i => i.name);
+}
+
+function genClothing(c) {
+  const cold = ['winter','autumn'].includes(c.season);
+  const hot  = c.season === 'summer';
+  const items = [];
+
+  if (cold) {
+    items.push({name:'Warm puffer or fleece jacket × ' + c.numAdults, tag:'cold'});
+    items.push({name:'Mid-layer (merino or fleece) × ' + c.numAdults, tag:'cold'});
+    items.push({name:'Thermal base layer set × ' + c.numAdults, note:'For mornings and evenings', tag:'cold'});
+  }
+  items.push({name:'Long pants × 2 per adult'});
+  items.push({name:'T-shirts × 2–3 per adult'});
+  items.push({name:'Underwear + ' + (cold ? 'wool/thermal ' : '') + 'socks × 3 days each'});
+  if (cold) items.push({name:'Warm pyjamas / thermals × adults', tag:'cold'});
+  items.push({name:'Rain jacket × ' + c.numAdults});
+  items.push({name:'Hiking boots / trail shoes × adults'});
+  items.push({name:'Thongs or slides for around camp'});
+  items.push({name:'Sun hat × ' + c.numAdults});
+  if (hot) items.push({name:'Swimmers × adults'});
+
+  if (c.numKids > 0) {
+    if (cold) {
+      items.push({name:'Kids: warm puffer jacket', tag:'kid'});
+      items.push({name:'Kids: fleece mid-layer', tag:'kid'});
+      items.push({name:'Kids: thermals top + bottom', tag:'kid', tag2:'cold'});
+    }
+    items.push({name:'Kids: long pants × 2 + tops × 3', tag:'kid'});
+    if (cold) items.push({name:'Kids: warm pyjamas + sleep sack', tag:'kid', tag2:'cold'});
+    if (cold) items.push({name:'Kids: beanie + mittens', tag:'kid', tag2:'cold'});
+    items.push({name:'Kids: sturdy closed shoes / gumboots', tag:'kid'});
+    items.push({name:'Spare outfits × 2 for kids (mud + creek guaranteed)', tag:'kid'});
+    if (hot) items.push({name:'Kids: rashie + swimmers', tag:'kid'});
+  }
+
+  return items;
+}
+
+function genKitchen(c) {
+  const have = g => c.ownedGear.some(o => o.toLowerCase().includes(g.toLowerCase()));
+  const hasFridge = have('fridge') || have('kings escape') || have('12v fridge');
+  const items = [];
+
+  items.push({name:'Camp stove + 2 × gas canisters'});
+  if (c.hasFirepit) {
+    items.push({name:'Milled firewood (2–3 bags)', note:'Bring your own — cannot collect in park', tag:'fire'});
+    items.push({name:'Grill grate to sit over fire ring', tag:'fire'});
+    items.push({name:'Heavy-duty foil roll', tag:'fire'});
+  }
+  items.push({name:'Large pot with lid'});
+  items.push({name:'Frying pan'});
+  items.push({name:'Kettle'});
+  items.push({name:`Plates × ${c.numAdults + c.numKids} + bowls × ${c.numAdults + c.numKids} + mugs × ${c.numAdults + c.numKids}`});
+  if (c.numKids > 0) items.push({name:'Toddler/kids plate + cup + cutlery', tag:'kid'});
+  items.push({name:`Cutlery × ${c.numAdults + c.numKids} sets`});
+  items.push({name:'Sharp knife + chopping board'});
+  items.push({name:'Washing basin + biodegradable soap + sponge'});
+  items.push({name:'Dish towels × 2'});
+
+  if (hasFridge) {
+    items.push({name:'Camp fridge + insulated cover', note:'HAVE — pre-cool at home. Set 2–4°C for food', tag:'have'});
+  } else {
+    items.push({name:'Esky / cooler + ice or ice bricks', note:'Keep meat at bottom, away from ice melt'});
+  }
+
+  if (c.hasWater) items.push({name:'Water filter or purification tablets', note:'Treat all creek/tank water before drinking', tag:'warn'});
+  items.push({name:'Water containers × 2 (5L each)'});
+  items.push({name:`Reusable water bottles × ${c.numAdults + c.numKids}`});
+  items.push({name:'Can opener, tongs, spatula, wooden spoon'});
+  items.push({name:'Cooking oil (small bottle)'});
+  items.push({name:'Salt, pepper, spice kit (ziplock)'});
+  items.push({name:'Paper towels'});
+  items.push({name:'Ziplock bags (various sizes)'});
+  if (c.hasFirepit) items.push({name:'Marshmallow skewers', tag:'fire'});
+
+  return items;
+}
+
+function genGroceries(c) {
+  const a = c.numAdults, k = c.numKids, total = a + k;
+  const df = c.diets.includes('dairy free');
+  const veg = c.diets.includes('vegetarian') || c.diets.includes('vegan');
+  const gf = c.diets.includes('gluten free');
+  const items = [];
+
+  // Calculate nights
+  let nights = 2;
+  if (c.dateFrom && c.dateTo) {
+    const diff = (new Date(c.dateTo) - new Date(c.dateFrom)) / (1000*60*60*24);
+    if (diff > 0) nights = diff;
+  }
+
+  if (!veg) {
+    items.push({name:`Marinated kebabs or sausages × ${a*3 + k*2}`, note:`Fri dinner. ${df ? 'Check DF marinade' : ''}`});
+    items.push({name:`Bacon ${a*125}g${df ? ' (check DF)' : ''}`, note:'Sat breakfast'});
+    items.push({name:`Eggs × ${a*2 + k*1}`, note:'Sat breakfast'});
+    items.push({name:`Sausages × ${a*3 + k*2}${df ? ' (check DF)' : ''}`, note:'Sat dinner'});
+    items.push({name:`Sliced chicken or salami ${a*100 + k*50}g`, note:'Trail rolls'});
+  } else {
+    items.push({name:`Halloumi or veggie skewers × ${total}`, note:'Fri dinner'});
+    items.push({name:`Eggs × ${a*3 + k*2}`, note:'Sat breakfast + snacks'});
+    items.push({name:`Canned chickpeas / lentils × 2`, note:'Dinner protein'});
+  }
+
+  items.push({name:`Bread rolls × ${(a+k)*2 + a}`, note:'Breakfasts + trail lunches'});
+  if (!gf) items.push({name:`Wraps × ${(a+k)*2}`, note:'Fri dinner wraps'});
+  items.push({name:`Instant oats 1kg`, note:'Last morning porridge'});
+  items.push({name:`${df ? 'Nuttelex / DF butter' : 'Butter'} 250g`});
+  items.push({name:`Hummus 2 × 200g tubs`, note:'Wraps + rolls'});
+  items.push({name:'Tomato sauce + condiments'});
+  items.push({name:'Honey + cinnamon + sultanas', note:'Porridge toppings'});
+
+  items.push({name:`Potatoes × ${a*2 + k} + sweet potato × ${Math.ceil(total/2)}`, note:'Dinner mash'});
+  items.push({name:`Cucumber × 2 + cherry tomatoes 250g`, note:'Rolls + wraps'});
+  items.push({name:'Baby spinach bag', note:'Rolls + wraps'});
+  items.push({name:`Bananas × ${total * nights} + apples × ${total}`, note:'Porridge + trail snacks'});
+
+  items.push({name:`${df ? 'Oat milk × ' + Math.ceil(total/2) + 'L' : 'Milk × ' + Math.ceil(total/2) + 'L'}`, note:'Porridge + hot drinks'});
+  items.push({name:'Hot chocolate powder × 1 tin', note: df ? 'Check DF — most Milo is DF' : ''});
+
+  items.push({name:'Instant coffee + tea bags × 20'});
+  items.push({name:'Marshmallows × 2 bags', note: df ? 'Check DF — most are DF' : '', tag:'fire'});
+  items.push({name:`Trail mix 500g + muesli bars × ${total * nights}`, note: gf ? 'Check GF' : df ? 'Check DF' : ''});
+  if (k > 0) {
+    items.push({name:`Juice boxes × ${k * nights * 2}`, tag:'kid'});
+    items.push({name:`Toddler snack pouches × ${k * nights * 2}`, tag:'kid'});
+  }
+  items.push({name:'Ziplock bags + heavy duty foil roll'});
+
+  return items;
+}
+
+function genToddler(c) {
+  if (c.numKids === 0) return [];
+  const cold = ['winter','autumn'].includes(c.season);
+  const items = [];
+  const have = g => c.ownedGear.some(o => o.toLowerCase().includes(g.toLowerCase()));
+
+  items.push({name:'Nappies / pull-ups — 3-day supply + spares', note:'Bring more than you think'});
+  items.push({name:'Wipes (2 packs)'});
+  items.push({name:'Portable potty', note:'Toilets can feel scary for little ones at night'});
+  items.push({name:'Change mat'});
+  items.push({name:'Hi-vis or glow wristband', note:'Creek nearby — essential at dusk', tag:'warn'});
+
+  if (have('child carrier') || have('hiking pack'))
+    items.push({name:'Child carrier / hiking backpack carrier', note:'HAVE', tag:'have'});
+  else
+    items.push({name:'Child carrier / hiking backpack carrier', note:'Essential for uneven terrain', tag:'warn'});
+
+  items.push({name:'Toddler trail shoes with ankle support'});
+  items.push({name:'Sunscreen SPF50+ (kids formula)'});
+  items.push({name:'Kid-safe insect repellent'});
+  if (cold) items.push({name:'Beanie + mittens + warm layers', tag:'cold'});
+  items.push({name:'Favourite toy / comfort item'});
+  items.push({name:'Small backpack (let them carry their own snacks)'});
+  items.push({name:'Activity bag: colouring, stickers, figurines', note:'For downtime'});
+  items.push({name:'Kids bath wash + shampoo'});
+  items.push({name:'Small towel for kids'});
+  items.push({name:'Swim nappy + rashie if swimming'});
+  return items;
+}
+
+function genHiking(c) {
+  const have = g => c.ownedGear.some(o => o.toLowerCase().includes(g.toLowerCase()));
+  const items = [];
+
+  if (c.walks.length > 0)
+    items.push({name:'Download AllTrails maps OFFLINE before leaving', note:'No phone signal at most remote campsites', tag:'warn'});
+
+  items.push({name:`Day pack × ${c.numAdults} (20–30L each)`});
+  if (c.numKids > 0) {
+    if (have('child carrier'))
+      items.push({name:'Child carrier / hiking carrier', note:'HAVE', tag:'have'});
+    else
+      items.push({name:'Child carrier / hiking carrier', note:'Essential with young kids on uneven terrain', tag:'warn'});
+  }
+  items.push({name:`Water bottles × ${c.numAdults + c.numKids} (fill + treat before each walk)`});
+  items.push({name:'High-energy snacks: trail mix, bars, fruit'});
+  items.push({name:'Compact first aid kit'});
+  if (have('trekking poles'))
+    items.push({name:'Trekking poles', note:'HAVE', tag:'have'});
+  else
+    items.push({name:'Trekking poles (optional — helpful on rocky/steep sections)'});
+  items.push({name:'Whistle × 2 (attach to pack)'});
+  items.push({name:'Long socks + gaiters (leech protection)', note:'Tuck pants into socks on bush tracks', tag:'warn'});
+  items.push({name:'Hiking boots / trail shoes × adults'});
+  items.push({name:'Sun hat + sunscreen'});
+  items.push({name:'Waterproof jacket (pack even in dry season)'});
+  items.push({name:'Dry bag for camera / phone / snacks'});
+  items.push({name:'Emergency space blanket (in daypack)'});
+  items.push({name:`Park map PDF (${c.parksUrl ? 'download from park website' : 'parks.qld.gov.au'})`, tag:'warn'});
+  return items;
+}
+
+function genHealth(c) {
+  return [
+    {name:'First aid kit: bandaids, antiseptic, tweezers, bandage'},
+    ...(c.numKids > 0 ? [{name:'Children\'s paracetamol + ibuprofen', tag:'kid'}] : []),
+    {name:'Adult paracetamol + ibuprofen'},
+    {name:'Antihistamine (tablets + cream)'},
+    {name:'Prescription medications (full trip supply)'},
+    {name:'Sunscreen SPF50+ × 2'},
+    {name:'Insect repellent: adults + ' + (c.numKids > 0 ? 'kid-safe for kids' : 'all')},
+    {name:'Fine salt or lighter for leech removal', note:'Apply salt or gentle heat — don\'t pull', tag:'warn'},
+    {name:'Blister plasters × 6'},
+    {name:'Eye wash / saline'},
+    {name:'Snake bite compression bandages × 2', note:'Rainforest + creek = snake country. Know the method', tag:'warn'},
+    {name:'Lip balm SPF'},
+    {name:'Hand sanitiser × 2'},
+    {name:'Toilet paper + trowel (for emergencies)'},
+    {name:'Wet wipes bulk pack'},
+  ];
+}
+
+function genPower(c) {
+  const have = g => c.ownedGear.some(o => o.toLowerCase().includes(g.toLowerCase()));
+  if (c.power === 'mains') {
+    return [
+      {name:'Extension cord (10–15m)', note:'To reach powered post from your site', tag:'have'},
+      {name:'Power board / multi-outlet', note:'For multiple devices'},
+      {name:'Phone + device chargers'},
+      {name:'Battery LED lantern (backup)', note:'For when you\'re away from the site'},
+    ];
+  }
+  if (c.power === 'solar') {
+    const items = [];
+    if (have('solar')) items.push({name:'Solar panel', note:'HAVE — face north, tilt 30–45° for winter', tag:'have'});
+    else items.push({name:'Solar panel (36W+ recommended)'});
+    if (have('power pack') || have('12v power'))
+      items.push({name:'12V power pack / battery', note:'HAVE — runs fridge + heated blanket', tag:'have'});
+    else
+      items.push({name:'Portable 12V power pack / battery', note:'Runs fridge + devices'});
+    items.push({name:'12V cigarette socket splitter', note:'Run fridge + blanket simultaneously'});
+    items.push({name:'12V extension lead (if needed)'});
+    items.push({name:'USB charging cable for power pack'});
+    items.push({name:'Pre-cool fridge at home on 240V night before', note:'Saves significant power pack charge on day 1', tag:'warn'});
+    return items;
+  }
+  // none
+  return [
+    {name:'Head torches × ' + c.numAdults + ' + spare batteries', note:'Essential — no lighting on site'},
+    {name:'Battery LED lantern × 2'},
+    {name:'Power bank (charged before leaving)', note:'For phone in emergencies'},
+    {name:'Spare AA + AAA batteries'},
+  ];
+}
+
+function genVehicle(c) {
+  const items = [
+    {name:'Check tyre pressure + spare tyre before leaving'},
+  ];
+  if (c.access === '4wd') {
+    items.push({name:'Recovery gear: tow strap, shovel, traction boards', note:'For creek crossings / soft ground', tag:'warn'});
+    items.push({name:'Check park alerts + road conditions before departing', note:c.parksUrl || 'parks.qld.gov.au', tag:'warn'});
+  } else if (c.access === 'gravel') {
+    items.push({name:'Check road conditions before departing', tag:'warn'});
+  }
+  if (c.access !== 'walkin') {
+    items.push({name:'Download offline road map (AllTrails or Maps.me)'});
+    items.push({name:'Jerry can (extra fuel)', note: c.nearestTown ? `Fill up at ${c.nearestTown} — last stop before park` : 'Fill up before leaving sealed road'});
+    items.push({name:'Torch + jumper cables in car'});
+    items.push({name:'Car charger / inverter (charge devices + power pack en route)'});
+  }
+  items.push({name:'Park booking confirmation (screenshot + printed)'});
+  items.push({name:'ICE contacts — leave with someone at home', note:'Include expected check-out date + time', tag:'warn'});
+  items.push({name:'Parks QLD permit / booking receipt'});
+  return items;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// MEAL PLAN GENERATOR
+// ══════════════════════════════════════════════════════════════════════
+
+function genMealPlan(c) {
+  const df = c.diets.includes('dairy free');
+  const veg = c.diets.includes('vegetarian') || c.diets.includes('vegan');
+  const easy = c.cooking === 'easy';
+  const proper = c.cooking === 'proper' || c.cooking === 'fire';
+
+  const protein = veg ? 'halloumi skewers' : 'marinated kebabs';
+  const milkStr = df ? 'oat milk' : 'milk';
+
+  let nights = 2;
+  if (c.dateFrom && c.dateTo) {
+    const diff = (new Date(c.dateTo) - new Date(c.dateFrom)) / (1000*60*60*24);
+    if (diff > 0) nights = Math.round(diff);
+  }
+
+  const days = [];
+  const from = c.dateFrom ? new Date(c.dateFrom) : null;
+
+  for (let n = 0; n < nights; n++) {
+    let dayLabel = `Night ${n+1}`;
+    if (from) {
+      const d = new Date(from); d.setDate(d.getDate() + n);
+      dayLabel = d.toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long'});
+    }
+
+    const meals = [];
+
+    if (n === 0) {
+      meals.push({type:'🚗 Lunch (en route)', name:'Packed rolls or roadside stop', desc:'Prepare before leaving — no cooking needed on arrival'});
+    } else {
+      meals.push({
+        type:'☕ Breakfast',
+        name: proper ? `Bacon & egg rolls${df ? ' (DF butter)' : ''}` : `Quick oats + fruit + honey`,
+        desc: proper ? `One pan. Fry bacon + eggs, serve in rolls.${c.numKids > 0 ? ' Kids: eggy soldiers.' : ''}` : `One pot, 5 min. ${milkStr}. Pack up while it cooks.`
+      });
+    }
+
+    if (n > 0) {
+      meals.push({
+        type:'🎒 Packed lunch',
+        name:'Trail rolls + fruit + snacks',
+        desc:'Pack from fridge the night before. Rolls with meat/filling + hummus + salad. Add fruit + muesli bar per person.'
+      });
+    }
+
+    if (n === 0) {
+      meals.push({
+        type:'🍳 Dinner',
+        name: easy ? `Pre-bought ${protein} + wraps + salad` : `${veg ? 'Veggie' : 'Beef'} stir-fry noodles`,
+        desc: easy ? `Heat on camp stove 8–10 min. Serve in wraps with hummus, salad. Zero prep at camp.` : `One pot. Toss veg + ${veg ? 'tofu' : 'beef'} + soy sauce + noodles.${df ? ' Check soy sauce is DF.' : ''}`
+      });
+    } else {
+      meals.push({
+        type:'🍳 Dinner',
+        name: `BBQ sausages + ${df ? 'DF ' : ''}mash`,
+        desc: `Boil diced potato + sweet potato. Mash with ${df ? 'Nuttelex + oat milk' : 'butter + milk'}. Fry sausages${df ? ' (check DF)' : ''}. Serve with sauce.`
+      });
+    }
+
+    meals.push({type:'🔥 After dark', name:'Marshmallows + hot choc', desc: `${df ? 'Oat milk' : ''} hot choc. ${c.numKids > 0 ? 'Non-negotiable with kids.' : 'Stare into fire.'}`});
+    days.push({label: dayLabel, sub: n === 0 ? 'Arrive · set up · 1 dinner' : n === nights - 1 ? 'Full day · pack out before check-out' : 'Full day · packed lunch for trail', meals});
+  }
+
+  // Last morning
+  const lastDate = from ? new Date(from) : null;
+  if (lastDate) lastDate.setDate(lastDate.getDate() + nights);
+  const lastLabel = lastDate ? lastDate.toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'long'}) : `Morning ${nights + 1}`;
+  days.push({
+    label: lastLabel,
+    sub: 'Pack out · check-out',
+    meals: [
+      {type:'☕ Breakfast', name:'Instant oats + banana + honey', desc:`One pot, 5 min. ${milkStr}. Pack up while it cooks.`},
+      {type:'🚗 Lunch (road home)', name: c.nearestTown ? `Stop at ${c.nearestTown}` : 'Roadside stop', desc:"You've earned a treat."},
+    ]
+  });
+
+  return days;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// BUILD APP
+// ══════════════════════════════════════════════════════════════════════
+
+let CONFIG = {};
+let SECTIONS = {};
+let checked = {};
+let markedForDel = {};
+let savedSections = {};
+let editMode = false;
+
+function returnToWizard() {
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('wizardScreen').style.display = 'flex';
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function buildApp() {
+  CONFIG = readConfig();
+
+  // Build sections
+  SECTIONS = {
+    gear:      genGear(CONFIG),
+    sleeping:  genSleeping(CONFIG),
+    clothing:  genClothing(CONFIG),
+    kitchen:   genKitchen(CONFIG),
+    groceries: genGroceries(CONFIG),
+    ...(CONFIG.numKids > 0 ? {toddler: genToddler(CONFIG)} : {}),
+    hiking:    genHiking(CONFIG),
+    health:    genHealth(CONFIG),
+    power:     genPower(CONFIG),
+    vehicle:   genVehicle(CONFIG),
+  };
+
+  checked = {};
+  markedForDel = {};
+
+  // Header
+  const fmt = d => d ? new Date(d).toLocaleDateString('en-AU', {day:'numeric', month:'short'}) : '';
+  const dateRange = CONFIG.dateFrom && CONFIG.dateTo ? `${fmt(CONFIG.dateFrom)} – ${fmt(CONFIG.dateTo)}` : '';
+  document.getElementById('appTitle').textContent = CONFIG.tripName;
+  document.getElementById('appSubtitle').textContent =
+    [CONFIG.campsiteName, CONFIG.parkName, dateRange].filter(Boolean).join(' · ');
+
+  // Chips
+  const chips = [
+    {label: CONFIG.campsiteName || CONFIG.parkName, cls:''},
+    dateRange && {label: '📅 ' + dateRange, cls:''},
+    {label: `👥 ${CONFIG.numAdults} adult${CONFIG.numAdults>1?'s':''}${CONFIG.numKids>0?' + '+CONFIG.numKids+' kid'+(CONFIG.numKids>1?'s':''):''}`, cls:''},
+    CONFIG.power === 'mains' && {label:'⚡ Powered site', cls:'good'},
+    CONFIG.power === 'solar' && {label:'☀️ Solar powered', cls:'cold'},
+    CONFIG.power === 'none'  && {label:'🔦 No power', cls:'warn'},
+    CONFIG.access === '4wd'  && {label:'⚠️ 4WD required', cls:'warn'},
+    CONFIG.access === 'walkin' && {label:'🥾 Walk-in only', cls:'warn'},
+    CONFIG.diets.length > 0  && {label: CONFIG.diets.join(' + '), cls:''},
+  ].filter(Boolean);
+  document.getElementById('appChips').innerHTML = chips.map(ch =>
+    `<span class="chip ${ch.cls}">${ch.label}</span>`).join('');
+
+  // Build tabs + panels
+  const tabDefs = [
+    ['gear',     '⛺', 'Gear'],
+    ['sleeping', '🛏', 'Sleeping'],
+    ['clothing', '🧥', 'Clothing'],
+    ['kitchen',  '🍳', 'Kitchen'],
+    ['food',     '🥘', 'Food'],
+    ...(CONFIG.numKids > 0 ? [['toddler','👶','Toddler']] : []),
+    ['hiking',   '🥾', 'Hiking'],
+    ['health',   '💊', 'Health'],
+    ['power',    '⚡', 'Power'],
+    ['vehicle',  '🚙', 'Vehicle'],
+    ['alerts',   '🚨', 'Alerts'],
+  ];
+
+  const tabBar = document.getElementById('tabBar');
+  const mainEl = document.getElementById('main-content');
+  tabBar.innerHTML = '';
+  mainEl.innerHTML = '';
+
+  tabDefs.forEach(([key, icon, label], idx) => {
+    // Tab
+    const tab = document.createElement('div');
+    tab.className = 'tab' + (idx === 0 ? ' active' : '');
+    tab.dataset.panel = key;
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('id', `tab-${key}`);
+    tab.setAttribute('aria-controls', `panel-${key}`);
+    tab.setAttribute('aria-selected', idx === 0 ? 'true' : 'false');
+    tab.setAttribute('tabindex', idx === 0 ? '0' : '-1');
+    tab.textContent = `${icon} ${label}`;
+    tabBar.appendChild(tab);
+
+    // Panel
+    const panel = document.createElement('div');
+    panel.className = 'panel' + (idx === 0 ? ' active' : '');
+    panel.id = `panel-${key}`;
+    panel.setAttribute('role', 'tabpanel');
+    panel.setAttribute('aria-labelledby', `tab-${key}`);
+    panel.setAttribute('tabindex', '0');
+    if (idx !== 0) panel.setAttribute('hidden', '');
+
+    panel.innerHTML = buildPanelHTML(key);
+    mainEl.appendChild(panel);
+  });
+
+  // Add reset button
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'reset-btn';
+  resetBtn.textContent = 'Reset all checkboxes';
+  resetBtn.addEventListener('click', () => {
+    if (confirm('Reset all checkboxes?')) { checked = {}; renderAll(); }
+  });
+  mainEl.appendChild(resetBtn);
+
+  // Render all sections
+  Object.keys(SECTIONS).forEach(key => {
+    const sec = document.createElement('div');
+    sec.className = 'section';
+    sec.id = `section-${key}`;
+    const colorMap = {gear:'moss',sleeping:'cold',clothing:'moss',kitchen:'bark',groceries:'clay',toddler:'ember',hiking:'fern',health:'purple',power:'cold',vehicle:'clay'};
+    const iconMap  = {gear:'⛺',sleeping:'🛏',clothing:'🧥',kitchen:'🍳',groceries:'🛒',toddler:'👶',hiking:'🥾',health:'💊',power:'⚡',vehicle:'🚙'};
+    const labelMap = {gear:'Camp Setup & Gear',sleeping:'Sleeping',clothing:'Clothing',kitchen:'Kitchen & Cooking',groceries:'Grocery List',toddler:'Toddler Essentials',hiking:'Hiking Gear',health:'Health & Safety',power:'Power',vehicle:'Vehicle & Access'};
+
+    sec.innerHTML = `
+      <div class="section-header ${colorMap[key]||'moss'}">
+        <span class="section-icon">${iconMap[key]||'📋'}</span>
+        <span class="section-title">${labelMap[key]||key}</span>
+        <span class="section-count" id="count-${key}">0/0</span>
+      </div>
+      <div class="items" id="${key}-items"></div>`;
+
+    const targetPanel = key === 'groceries' ? 'food' : key === 'toddler' ? 'toddler' : key;
+    const panel = document.getElementById(`panel-${targetPanel}`);
+    if (panel) {
+      const existing = panel.querySelector('.items-container') || panel;
+      existing.appendChild(sec);
+    }
+  });
+
+  renderAll();
+  setupTabs();
+  setupScrollBtns();
+  setupEditMode();
+
+  // Update save bar name
+  const saveBarName = document.getElementById('saveBarName');
+  if (saveBarName) saveBarName.textContent = CONFIG.tripName || 'My Trip';
+
+  // Switch screens
+  document.getElementById('wizardScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  window.scrollTo({top: 0, behavior: 'smooth'});
+  announce('Your packing list is ready. Use the tabs to navigate.');
+}
+
+function buildPanelHTML(key) {
+  const c = CONFIG;
+  const cold = ['winter','autumn'].includes(c.season);
+
+  if (key === 'gear') return `
+    <div class="info"><p>⚡ <strong>Power: ${c.power === 'mains' ? 'Powered site' : c.power === 'solar' ? 'Solar only' : 'No mains power'}</strong>${c.power !== 'mains' ? ' — use your solar setup or batteries.' : ' — extension cord to powered post.'} ${c.hasFirepit ? 'Fire rings available at each site.' : ''} Camp stove is your primary cooking method.</p></div>
+    <div class="gear-nudge"><span>⚠️</span><span>Check the <button class="nudge-btn" onclick="activateTab(document.querySelector('[data-panel=alerts]'))">🚨 Alerts tab</button> for fire bans and park warnings before you leave.</span></div>`;
+
+  if (key === 'sleeping') return `
+    <div class="info"><p>🌡 ${cold ? `<strong>Cold nights expected</strong> — pack warm layers. ${c.season === 'winter' ? 'July nights in creek valleys can reach 5–8°C.' : 'Autumn nights can be cool unexpectedly.'}` : `<strong>${c.season.charAt(0).toUpperCase() + c.season.slice(1)} camping</strong> — temperatures are generally comfortable overnight.`}</p></div>`;
+
+  if (key === 'clothing') return `
+    <div class="info"><p>${cold ? 'Warm days, cold nights. Dress in layers — mornings on the trail will start cold. Pack a rain layer just in case.' : c.season === 'summer' ? 'Hot days and warm nights. Light clothing, but always pack a rain layer.' : 'Mild conditions. A light layer for evenings is usually enough.'}</p></div>`;
+
+  if (key === 'kitchen') return `
+    ${c.hasFirepit ? '<div class="alert"><div class="alert-title">🪵 Bring your own firewood</div><p>Cannot collect wood in the park. Buy milled firewood at a servo or hardware store before leaving the highway.</p></div>' : ''}
+    ${c.hasWater ? '<div class="info"><p>💧 Water is available on site but must be treated before drinking — filter, purification tablets, or boil.</p></div>' : ''}`;
+
+  if (key === 'food') {
+    const mealDays = genMealPlan(c);
+    return mealDays.map(day => `
+      <div class="meal-day">
+        <div class="meal-day-header">${day.label} <span>${day.sub}</span></div>
+        ${day.meals.map(m => `
+          <div class="meal">
+            <div class="meal-type">${m.type}</div>
+            <div class="meal-name">${m.name}</div>
+            <div class="meal-desc">${m.desc}</div>
+          </div>`).join('')}
+      </div>`).join('');
+  }
+
+  if (key === 'hiking') {
+    const walkLinks = c.walks.length > 0 ? `
+      <div class="info">
+        <p><strong>Your planned walks:</strong> ${c.walks.map(w =>
+          w.url ? `<a href="${w.url}" target="_blank" style="color:var(--cold)">${w.name}<span class="sr-only"> (opens in new tab)</span></a>` : w.name
+        ).join(' · ')}</p>
+        <p style="margin-top:0.3rem">⚠️ Download AllTrails offline maps before leaving — no signal at most remote campsites.</p>
+      </div>` : '<div class="info"><p>Add your planned walks in the setup wizard for direct AllTrails links here.</p></div>';
+    return walkLinks;
+  }
+
+  if (key === 'power') {
+    if (c.power === 'solar') return `
+      <div class="info"><p>⚡ <strong>Solar setup:</strong> Pre-cool fridge at home on 240V before departure — this saves significant power pack charge on day 1. Point your panel north, tilt 30–45° for winter sun.</p></div>
+      <div class="alert"><div class="alert-title">⚡ Power priority order</div><p>1. Fridge (always on — food safety) &nbsp; 2. Heated blanket (pre-warm 1–2hrs before bed then off) &nbsp; 3. Phone charging (sparingly — charge in car on drive) &nbsp; 4. Night light (battery only)</p></div>`;
+    if (c.power === 'mains') return `
+      <div class="info"><p>⚡ <strong>Powered site:</strong> Extension cord to the powered post, then power board for multiple devices. Check the distance from your site to the power post before setting up.</p></div>`;
+    return `<div class="info"><p>🔦 <strong>No mains power:</strong> Head torches and battery lanterns are your main lighting. Keep a spare power bank charged in the car for emergencies.</p></div>`;
+  }
+
+  if (key === 'vehicle') {
+    if (c.access === '4wd') return `
+      <div class="alert"><div class="alert-title">🚙 4WD & creek crossings required</div><p>High-clearance 4WD recommended. Check current road conditions before departing. Do not attempt creek crossings if water is running fast or above wheel axle height.</p></div>`;
+    if (c.access === 'walkin') return `
+      <div class="info"><p>🥾 Walk-in campsite — all gear needs to be carried in from the car park. Pack light and use a good hiking pack or wheelie bag.</p></div>`;
+    if (c.access === 'gravel') return `
+      <div class="info"><p>🪨 Gravel / dirt road access. High-clearance vehicle recommended. Check conditions after rain before departing.</p></div>`;
+    return `<div class="info"><p>🛣️ Sealed road access — any vehicle is fine. Easy access to the campsite.</p></div>`;
+  }
+
+  if (key === 'alerts') {
+    const parksUrl = c.parksUrl || 'https://parks.qld.gov.au';
+    const bomUrl = `https://www.bom.gov.au/qld/forecasts/${c.bomTown || 'brisbane'}.shtml`;
+    return `
+      <div class="warnings-section-title">🔥 Fire Ban Status</div>
+      <div class="fire-ban-box" id="fireBanBox">
+        <div class="fire-ban-header">
+          <span class="fire-ban-icon" aria-hidden="true">🔥</span>
+          <div class="fire-ban-body">
+            <div class="fire-ban-title">Fire Ban Status — Check Before You Leave</div>
+            <div class="fire-ban-sub" id="fireBanSub">Tap "AI Check" for a live summary, or use the direct links below</div>
+          </div>
+          <button class="fire-ai-btn" id="fireBanAiBtn" onclick="checkFireBanLive()" aria-label="Check current fire ban status using AI">
+            <span id="fireBanBtnLabel">⚡ AI Check</span>
+          </button>
+        </div>
+        <div class="fire-ai-result" id="fireAiResult" aria-live="polite" hidden>
+          <div class="fire-ai-result-inner" id="fireAiResultInner"></div>
+          <div class="fire-ai-timestamp" id="fireAiTimestamp"></div>
+        </div>
+        <div class="fire-ban-links">
+          <a href="https://www.qfes.qld.gov.au/prepare-act/bushfire-management/current-fire-danger-ratings" target="_blank" class="fire-ban-link" aria-label="Check QLD fire danger ratings (opens in new tab)">
+            🔥 QLD Fire Danger<span class="sr-only"> (opens in new tab)</span>
+          </a>
+          <a href="${parksUrl}" target="_blank" class="fire-ban-link park" aria-label="Check park alerts (opens in new tab)">
+            🏕️ ${c.parkName || 'Park'} Alerts<span class="sr-only"> (opens in new tab)</span>
+          </a>
+        </div>
+        <div class="fire-ban-note">⚠️ AI Check only works inside Claude.ai — static links work everywhere. Always check the morning you depart.</div>
+      </div>
+
+      <div class="warnings-section-title">⚠️ Park Alerts — ${c.parkName || 'Your Park'}</div>
+      <div class="park-alerts-box">
+        <div class="park-alerts-header">
+          <span aria-hidden="true">⚠️</span>
+          <span>Live Alerts</span>
+          <a href="${parksUrl}" target="_blank" class="park-alerts-live-btn" aria-label="View live park alerts (opens in new tab)">
+            View live alerts ↗<span class="sr-only"> (opens in new tab)</span>
+          </a>
+        </div>
+        <div class="park-alerts-body">
+          <div class="park-alert-item" style="font-size:0.76rem;padding:0.7rem 0.85rem;color:#666;font-style:italic">
+            No known alerts stored for this trip — tap "View live alerts" above to check current status on the QLD Parks website.
+          </div>
+        </div>
+        <p class="park-alerts-footer">
+          <a href="${parksUrl}" target="_blank" style="color:var(--cold)">Check for alerts on QLD Parks website ↗<span class="sr-only"> (opens in new tab)</span></a>
+        </p>
+      </div>
+
+      <div class="warnings-section-title">🔗 Quick Links</div>
+      <div class="links-grid">
+        <a href="${parksUrl}" target="_blank" class="park-link">
+          <span class="park-link-icon">🏕️</span>
+          <span class="park-link-body"><span class="park-link-title">${c.parkName || 'Park'} — Alerts</span><span class="park-link-sub">parks.qld.gov.au</span></span>
+          <span class="park-link-arrow">↗</span><span class="sr-only"> (opens in new tab)</span>
+        </a>
+        <a href="https://www.qfes.qld.gov.au/prepare-act/bushfire-management/current-fire-danger-ratings" target="_blank" class="park-link">
+          <span class="park-link-icon">🔥</span>
+          <span class="park-link-body"><span class="park-link-title">QLD Fire Danger</span><span class="park-link-sub">qfes.qld.gov.au</span></span>
+          <span class="park-link-arrow">↗</span><span class="sr-only"> (opens in new tab)</span>
+        </a>
+        <a href="https://www.qld.gov.au/transport/safety/road-safety/road-conditions" target="_blank" class="park-link">
+          <span class="park-link-icon">🚙</span>
+          <span class="park-link-body"><span class="park-link-title">QLD Road Conditions</span><span class="park-link-sub">qld.gov.au/transport</span></span>
+          <span class="park-link-arrow">↗</span><span class="sr-only"> (opens in new tab)</span>
+        </a>
+        <a href="${bomUrl}" target="_blank" class="park-link">
+          <span class="park-link-icon">🌤️</span>
+          <span class="park-link-body"><span class="park-link-title">BOM Weather Forecast</span><span class="park-link-sub">${c.nearestTown || 'Local forecast'}</span></span>
+          <span class="park-link-arrow">↗</span><span class="sr-only"> (opens in new tab)</span>
+        </a>
+      </div>
+      <p class="last-checked">Alerts sourced from QLD Parks · Tap AI Check or links for current status</p>`;
+  }
+
+  return '';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════════════════════════════
+
+function tagEl(tag) {
+  if (!tag) return '';
+  const labels = {cold:'❄ cold', kid:'kid', fire:'🔥 fire', warn:'⚠ note', have:'✅ HAVE', df:'dairy free'};
+  return `<span class="tag ${tag}" aria-label="${labels[tag]||tag}">${labels[tag]||tag}</span>`;
+}
+
+function renderSection(containerId, key, countEl) {
+  const items = SECTIONS[key];
+  if (!items) return;
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  container.innerHTML = items.map((item, i) => {
+    const k = `${key}-${i}`;
+    const isChecked = !!checked[k];
+    const isMarked  = !!markedForDel[k];
+    const tagLabel = item.tag ? ` (${({cold:'cold weather',kid:'for kids',fire:'fire related',warn:'note',have:'already have'})[item.tag]||item.tag})` : '';
+    return `
+      <div class="item-wrap${isMarked?' marked-del':''}" data-k="${k}">
+        <div class="del-check" data-k="${k}" role="checkbox" aria-checked="${isMarked}"
+          aria-label="Mark '${item.name.replace(/'/g,"'")}' for removal" tabindex="${editMode?'0':'-1'}">
+          <div class="del-check-box" aria-hidden="true"><span class="x">✕</span></div>
+        </div>
+        <div class="item${isChecked?' checked':''}" data-k="${k}"
+          role="checkbox" aria-checked="${isChecked}"
+          aria-label="${item.name.replace(/"/g,'&quot;')}${tagLabel}${item.note?'. Note: '+item.note:''} — ${isChecked?'packed':'not packed'}"
+          tabindex="${editMode?'-1':'0'}">
+          <div class="cb" aria-hidden="true"><span class="tick">✓</span></div>
+          <div class="item-body">
+            <div class="item-name">${item.name}${tagEl(item.tag)}${item.tag2?tagEl(item.tag2):''}</div>
+            ${item.note?`<div class="item-note">${item.note}</div>`:''}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  container.querySelectorAll('.item').forEach(el => {
+    const toggle = () => {
+      if (editMode) return;
+      checked[el.dataset.k] = !checked[el.dataset.k];
+      renderAll();
+    };
+    el.addEventListener('click', toggle);
+    el.addEventListener('keydown', e => { if (e.key===' '||e.key==='Enter'){e.preventDefault();toggle();} });
+  });
+
+  container.querySelectorAll('.del-check').forEach(el => {
+    const toggle = ev => {
+      ev.stopPropagation();
+      if (!editMode) return;
+      markedForDel[el.dataset.k] = !markedForDel[el.dataset.k];
+      renderAll();
+    };
+    el.addEventListener('click', toggle);
+    el.addEventListener('keydown', e => { if (e.key===' '||e.key==='Enter'){e.preventDefault();toggle(e);} });
+  });
+
+  if (countEl) {
+    const done = items.filter((_,i) => checked[`${key}-${i}`]).length;
+    const dels = items.filter((_,i) => markedForDel[`${key}-${i}`]).length;
+    countEl.innerHTML = `${done}/${items.length}${dels>0?` <span class="del-badge has-dels">−${dels}</span>`:''}`;
+  }
+}
+
+function updateProgress() {
+  let total = 0, done = 0;
+  Object.keys(SECTIONS).forEach(k => {
+    SECTIONS[k].forEach((_,i) => { total++; if (checked[`${k}-${i}`]) done++; });
+  });
+  const pct = total ? Math.round(done/total*100) : 0;
+  const prog = document.getElementById('prog');
+  if (prog) { prog.style.width = pct+'%'; prog.setAttribute('aria-valuenow', pct); }
+  const lbl = document.getElementById('progLabel');
+  if (lbl) lbl.textContent = `${done} of ${total} items packed`;
+}
+
+function renderAll() {
+  Object.keys(SECTIONS).forEach(key => {
+    if (!document.getElementById(`${key}-items`)) return;
+    renderSection(`${key}-items`, key, document.getElementById(`count-${key}`));
+  });
+  updateProgress();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════════════════════
+
+function activateTab(tab) {
+  if (!tab) return;
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.remove('active'); t.setAttribute('aria-selected','false'); t.setAttribute('tabindex','-1');
+  });
+  document.querySelectorAll('.panel').forEach(p => { p.classList.remove('active'); p.setAttribute('hidden',''); });
+  tab.classList.add('active'); tab.setAttribute('aria-selected','true'); tab.setAttribute('tabindex','0');
+  const panel = document.getElementById(`panel-${tab.dataset.panel}`);
+  if (panel) { panel.classList.add('active'); panel.removeAttribute('hidden'); }
+  tab.scrollIntoView({behavior:'smooth', block:'nearest', inline:'center'});
+  announce(`${tab.textContent.trim()} tab selected`);
+}
+
+function setupTabs() {
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => activateTab(tab));
+    tab.addEventListener('keydown', e => {
+      const all = [...document.querySelectorAll('.tab')];
+      const i = all.indexOf(tab);
+      if (e.key==='ArrowRight') { e.preventDefault(); const n=all[(i+1)%all.length]; activateTab(n); n.focus(); }
+      if (e.key==='ArrowLeft')  { e.preventDefault(); const n=all[(i-1+all.length)%all.length]; activateTab(n); n.focus(); }
+      if (e.key==='Home') { e.preventDefault(); activateTab(all[0]); all[0].focus(); }
+      if (e.key==='End')  { e.preventDefault(); activateTab(all[all.length-1]); all[all.length-1].focus(); }
+      if (e.key===' '||e.key==='Enter') { e.preventDefault(); activateTab(tab); }
+    });
+  });
+}
+
+function setupScrollBtns() {
+  const tabBar  = document.getElementById('tabBar');
+  const tabWrap = document.getElementById('tabWrap');
+  const btnL    = document.getElementById('scrollLeft');
+  const btnR    = document.getElementById('scrollRight');
+  if (!tabBar || !btnL || !btnR) return;
+
+  function update() {
+    const atStart = tabBar.scrollLeft <= 4;
+    const atEnd   = tabBar.scrollLeft >= tabBar.scrollWidth - tabBar.clientWidth - 4;
+    btnL.classList.toggle('hidden', atStart);
+    btnL.setAttribute('aria-hidden', atStart?'true':'false');
+    btnR.classList.toggle('hidden', atEnd);
+    btnR.setAttribute('aria-hidden', atEnd?'true':'false');
+    tabWrap.classList.toggle('at-start', atStart);
+    tabWrap.classList.toggle('at-end', atEnd);
+  }
+  btnL.addEventListener('click', () => tabBar.scrollBy({left:-160, behavior:'smooth'}));
+  btnR.addEventListener('click', () => tabBar.scrollBy({left:160,  behavior:'smooth'}));
+  tabBar.addEventListener('scroll', update);
+  window.addEventListener('resize', update);
+  update();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// EDIT MODE
+// ══════════════════════════════════════════════════════════════════════
+
+function setupEditMode() {
+  document.getElementById('btnEdit').addEventListener('click', () => {
+    savedSections = JSON.parse(JSON.stringify(SECTIONS));
+    markedForDel = {};
+    editMode = true;
+    document.body.classList.add('edit-mode');
+    document.getElementById('btnEdit').style.display   = 'none';
+    document.getElementById('btnCancel').style.display = 'inline-block';
+    document.getElementById('btnSave').style.display   = 'inline-block';
+    document.getElementById('editBarLabel').textContent = 'Tap items to mark for removal';
+    announce('Edit mode on. Tap items to mark for removal.');
+    renderAll();
+  });
+
+  document.getElementById('btnCancel').addEventListener('click', () => {
+    Object.keys(savedSections).forEach(k => { SECTIONS[k] = savedSections[k]; });
+    markedForDel = {};
+    exitEditMode();
+  });
+
+  document.getElementById('btnSave').addEventListener('click', () => {
+    const toRemove = Object.keys(markedForDel).filter(k => markedForDel[k]);
+    if (toRemove.length === 0) { exitEditMode(); return; }
+    const newChecked = {};
+    Object.keys(SECTIONS).forEach(key => {
+      const newItems = []; let ni = 0;
+      SECTIONS[key].forEach((item, i) => {
+        const k = `${key}-${i}`;
+        if (markedForDel[k]) return;
+        if (checked[k]) newChecked[`${key}-${ni}`] = true;
+        newItems.push(item); ni++;
+      });
+      SECTIONS[key] = newItems;
+    });
+    checked = newChecked; markedForDel = {};
+    exitEditMode();
+    const lbl = document.getElementById('editBarLabel');
+    lbl.textContent = `✅ ${toRemove.length} item${toRemove.length>1?'s':''} removed`;
+    lbl.style.color = 'var(--moss)';
+    setTimeout(() => { lbl.textContent='Tap ✏️ to edit lists'; lbl.style.color=''; }, 2500);
+    announce(`${toRemove.length} item${toRemove.length>1?'s':''} removed`);
+  });
+}
+
+function exitEditMode() {
+  editMode = false;
+  document.body.classList.remove('edit-mode');
+  document.getElementById('btnEdit').style.display   = 'inline-block';
+  document.getElementById('btnCancel').style.display = 'none';
+  document.getElementById('btnSave').style.display   = 'none';
+  document.getElementById('editBarLabel').textContent = 'Tap ✏️ to edit lists';
+  announce('Edit mode off.');
+  renderAll();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FIRE BAN LIVE CHECK
+// ══════════════════════════════════════════════════════════════════════
+
+async function checkFireBanLive() {
+  const btn     = document.getElementById('fireBanAiBtn');
+  const btnLbl  = document.getElementById('fireBanBtnLabel');
+  const result  = document.getElementById('fireAiResult');
+  const inner   = document.getElementById('fireAiResultInner');
+  const ts      = document.getElementById('fireAiTimestamp');
+  const sub     = document.getElementById('fireBanSub');
+  if (!btn) return;
+
+  btn.disabled = true;
+  btnLbl.innerHTML = '<span class="fire-ai-spinner">⏳</span> Checking...';
+  if (result) result.hidden = false;
+  if (inner) inner.textContent = `Fetching current fire danger for ${CONFIG.fireDangerRegion || 'Southeast Queensland'} and alerts for ${CONFIG.parkName || 'your park'}…`;
+  if (ts) ts.textContent = '';
+
+  try {
+    const response = await fetch(getApiUrl() + '/v1/messages', {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        tools: [{type:'web_search_20250305', name:'web_search'}],
+        system: `You are a helpful assistant checking fire danger and park alerts for a family camping trip in Queensland, Australia.
+Respond ONLY with a concise plain-text summary (no markdown, no headers) covering:
+1. Current fire danger rating for ${CONFIG.fireDangerRegion || 'Southeast Queensland'}
+2. Whether there is a current total fire ban in effect
+3. Any current park alerts or road closures for ${CONFIG.parkName || 'the park'}
+4. One-line recommendation (e.g. "Safe to have a campfire" or "Total fire ban — no campfires")
+Keep the whole response under 120 words. Be direct and practical.`,
+        messages: [{
+          role: 'user',
+          content: `What is the current fire danger rating and fire ban status for ${CONFIG.fireDangerRegion || 'Southeast Queensland'}? Also check for any current park alerts at ${CONFIG.parkName || 'the park'}${CONFIG.parksUrl ? ' (' + CONFIG.parksUrl + ')' : ''}. Today's date is ${new Date().toLocaleDateString('en-AU', {weekday:'long',year:'numeric',month:'long',day:'numeric'})}.`
+        }]
+      })
+    });
+
+    if (!response.ok) throw new Error(response.status === 401 ? 'AUTH' : `Error ${response.status}`);
+    const data = await response.json();
+    const text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+    if (!text) throw new Error('No response');
+    if (inner) inner.textContent = text;
+    const now = new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
+    if (ts) ts.textContent = `Checked at ${now} · Tap to refresh`;
+    if (btnLbl) btnLbl.textContent = '⚡ Refresh';
+    if (sub) sub.textContent = 'Live check complete — see result below';
+  } catch (err) {
+    const isAuth = err.message === 'AUTH' || err.message.includes('401');
+    if (inner) inner.textContent = isAuth
+      ? '⚠️ AI Check only works inside Claude.ai.\n\nUse the direct links below to check fire danger and park alerts manually.'
+      : `⚠️ Could not fetch: ${err.message}\n\nUse the direct links below.`;
+    if (ts) ts.textContent = 'Use static links as fallback';
+    if (btnLbl) btnLbl.textContent = '⚡ Try again';
+  }
+  btn.disabled = false;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// AUTO-FILL PARK DETAILS
+// ══════════════════════════════════════════════════════════════════════
+
+// ── Australian National Park Lookup Table — QLD & NSW ─────────────────────────
+// Expanded coverage for Queensland and New South Wales parks.
+// Keys are lowercase for fuzzy matching.
+const PARK_LOOKUP = {
+  // ── QUEENSLAND ──────────────────────────────────────────────────────────────
+  // Southeast QLD
+  "conondale national park":            { nearestTown: "Kenilworth",       parksUrl: "https://parks.qld.gov.au/parks/conondale",             bomTown: "sunshine-coast", fireDangerRegion: "Wide Bay and Burnett",             state: "QLD" },
+  "lamington national park":            { nearestTown: "Canungra",         parksUrl: "https://parks.qld.gov.au/parks/lamington",             bomTown: "gold-coast",     fireDangerRegion: "Southeast Coast",                  state: "QLD" },
+  "main range national park":           { nearestTown: "Killarney",        parksUrl: "https://parks.qld.gov.au/parks/main-range",            bomTown: "toowoomba",      fireDangerRegion: "Darling Downs and Granite Belt",    state: "QLD" },
+  "springbrook national park":          { nearestTown: "Mudgeeraba",       parksUrl: "https://parks.qld.gov.au/parks/springbrook",           bomTown: "gold-coast",     fireDangerRegion: "Southeast Coast",                  state: "QLD" },
+  "daguilar national park":             { nearestTown: "Woodford",         parksUrl: "https://parks.qld.gov.au/parks/daguilar",              bomTown: "brisbane",       fireDangerRegion: "Southeast Coast",                  state: "QLD" },
+  "d'aguilar national park":            { nearestTown: "Woodford",         parksUrl: "https://parks.qld.gov.au/parks/daguilar",              bomTown: "brisbane",       fireDangerRegion: "Southeast Coast",                  state: "QLD" },
+  "girraween national park":            { nearestTown: "Stanthorpe",       parksUrl: "https://parks.qld.gov.au/parks/girraween",             bomTown: "stanthorpe",     fireDangerRegion: "Darling Downs and Granite Belt",    state: "QLD" },
+  "mount barney national park":         { nearestTown: "Rathdowney",       parksUrl: "https://parks.qld.gov.au/parks/mount-barney",          bomTown: "warwick",        fireDangerRegion: "Southeast Coast",                  state: "QLD" },
+  "mt barney national park":            { nearestTown: "Rathdowney",       parksUrl: "https://parks.qld.gov.au/parks/mount-barney",          bomTown: "warwick",        fireDangerRegion: "Southeast Coast",                  state: "QLD" },
+  "moogerah peaks national park":       { nearestTown: "Boonah",           parksUrl: "https://parks.qld.gov.au/parks/moogerah-peaks",        bomTown: "ipswich",        fireDangerRegion: "Southeast Coast",                  state: "QLD" },
+  "scenic rim":                         { nearestTown: "Boonah",           parksUrl: "https://parks.qld.gov.au/parks/main-range",            bomTown: "ipswich",        fireDangerRegion: "Southeast Coast",                  state: "QLD" },
+  "gold coast hinterland":              { nearestTown: "Canungra",         parksUrl: "https://parks.qld.gov.au/parks/lamington",             bomTown: "gold-coast",     fireDangerRegion: "Southeast Coast",                  state: "QLD" },
+  "lake moogerah":                      { nearestTown: "Boonah",           parksUrl: "https://parks.qld.gov.au/parks/moogerah-peaks",        bomTown: "ipswich",        fireDangerRegion: "Southeast Coast",                  state: "QLD" },
+  "tamborine national park":            { nearestTown: "Mount Tamborine",  parksUrl: "https://parks.qld.gov.au/parks/tamborine",             bomTown: "gold-coast",     fireDangerRegion: "Southeast Coast",                  state: "QLD" },
+  "mount tamborine national park":      { nearestTown: "Mount Tamborine",  parksUrl: "https://parks.qld.gov.au/parks/tamborine",             bomTown: "gold-coast",     fireDangerRegion: "Southeast Coast",                  state: "QLD" },
+  "mapleton falls national park":       { nearestTown: "Mapleton",         parksUrl: "https://parks.qld.gov.au/parks/mapleton-falls",        bomTown: "sunshine-coast", fireDangerRegion: "Wide Bay and Burnett",             state: "QLD" },
+  "kondalilla national park":           { nearestTown: "Montville",        parksUrl: "https://parks.qld.gov.au/parks/kondalilla",            bomTown: "sunshine-coast", fireDangerRegion: "Wide Bay and Burnett",             state: "QLD" },
+  "cooloola national park":             { nearestTown: "Tin Can Bay",      parksUrl: "https://parks.qld.gov.au/parks/great-sandy",           bomTown: "gympie",         fireDangerRegion: "Wide Bay and Burnett",             state: "QLD" },
+  "great sandy national park":          { nearestTown: "Rainbow Beach",    parksUrl: "https://parks.qld.gov.au/parks/great-sandy",           bomTown: "gympie",         fireDangerRegion: "Wide Bay and Burnett",             state: "QLD" },
+  "fraser island":                      { nearestTown: "Hervey Bay",       parksUrl: "https://parks.qld.gov.au/parks/great-sandy",           bomTown: "maryborough",    fireDangerRegion: "Wide Bay and Burnett",             state: "QLD" },
+  "k'gari":                             { nearestTown: "Hervey Bay",       parksUrl: "https://parks.qld.gov.au/parks/great-sandy",           bomTown: "maryborough",    fireDangerRegion: "Wide Bay and Burnett",             state: "QLD" },
+  "bribie island national park":        { nearestTown: "Bongaree",         parksUrl: "https://parks.qld.gov.au/parks/bribie-island",         bomTown: "brisbane",       fireDangerRegion: "Southeast Coast",                  state: "QLD" },
+  "noosa national park":                { nearestTown: "Noosa Heads",      parksUrl: "https://parks.qld.gov.au/parks/noosa",                 bomTown: "sunshine-coast", fireDangerRegion: "Wide Bay and Burnett",             state: "QLD" },
+  "ravensbourne national park":         { nearestTown: "Ravensbourne",     parksUrl: "https://parks.qld.gov.au/parks/ravensbourne",          bomTown: "toowoomba",      fireDangerRegion: "Darling Downs and Granite Belt",    state: "QLD" },
+  "crows nest national park":           { nearestTown: "Crows Nest",       parksUrl: "https://parks.qld.gov.au/parks/crows-nest",            bomTown: "toowoomba",      fireDangerRegion: "Darling Downs and Granite Belt",    state: "QLD" },
+  "bunya mountains national park":      { nearestTown: "Dalby",            parksUrl: "https://parks.qld.gov.au/parks/bunya-mountains",       bomTown: "toowoomba",      fireDangerRegion: "Darling Downs and Granite Belt",    state: "QLD" },
+  // Central + North QLD
+  "carnarvon national park":            { nearestTown: "Rolleston",        parksUrl: "https://parks.qld.gov.au/parks/carnarvon",             bomTown: "emerald",        fireDangerRegion: "Central Highlands and Coalfields", state: "QLD" },
+  "eungella national park":             { nearestTown: "Mackay",           parksUrl: "https://parks.qld.gov.au/parks/eungella",              bomTown: "mackay",         fireDangerRegion: "Central Coast and Whitsundays",    state: "QLD" },
+  "cape hillsborough national park":    { nearestTown: "Mackay",           parksUrl: "https://parks.qld.gov.au/parks/cape-hillsborough",     bomTown: "mackay",         fireDangerRegion: "Central Coast and Whitsundays",    state: "QLD" },
+  "conway national park":               { nearestTown: "Airlie Beach",     parksUrl: "https://parks.qld.gov.au/parks/conway",                bomTown: "mackay",         fireDangerRegion: "Central Coast and Whitsundays",    state: "QLD" },
+  "whitsunday islands national park":   { nearestTown: "Airlie Beach",     parksUrl: "https://parks.qld.gov.au/parks/whitsunday-islands",    bomTown: "mackay",         fireDangerRegion: "Central Coast and Whitsundays",    state: "QLD" },
+  "magnetic island national park":      { nearestTown: "Townsville",       parksUrl: "https://parks.qld.gov.au/parks/magnetic-island",       bomTown: "townsville",     fireDangerRegion: "North Tropical Coast and Tablelands", state: "QLD" },
+  "paluma range national park":         { nearestTown: "Ingham",           parksUrl: "https://parks.qld.gov.au/parks/paluma-range",          bomTown: "townsville",     fireDangerRegion: "North Tropical Coast and Tablelands", state: "QLD" },
+  "hinchinbrook island national park":  { nearestTown: "Cardwell",         parksUrl: "https://parks.qld.gov.au/parks/hinchinbrook-island",   bomTown: "ingham",         fireDangerRegion: "North Tropical Coast and Tablelands", state: "QLD" },
+  "daintree national park":             { nearestTown: "Mossman",          parksUrl: "https://parks.qld.gov.au/parks/daintree",              bomTown: "cairns",         fireDangerRegion: "North Tropical Coast and Tablelands", state: "QLD" },
+  "wet tropics":                        { nearestTown: "Cairns",           parksUrl: "https://parks.qld.gov.au/parks/daintree",              bomTown: "cairns",         fireDangerRegion: "North Tropical Coast and Tablelands", state: "QLD" },
+  "undara volcanic national park":      { nearestTown: "Mount Surprise",   parksUrl: "https://parks.qld.gov.au/parks/undara-volcanic",       bomTown: "cairns",         fireDangerRegion: "North Tropical Coast and Tablelands", state: "QLD" },
+  "boodjamulla national park":          { nearestTown: "Burketown",        parksUrl: "https://parks.qld.gov.au/parks/boodjamulla-lawn-hill", bomTown: "mount-isa",      fireDangerRegion: "Northwest",                        state: "QLD" },
+  "lawn hill national park":            { nearestTown: "Burketown",        parksUrl: "https://parks.qld.gov.au/parks/boodjamulla-lawn-hill", bomTown: "mount-isa",      fireDangerRegion: "Northwest",                        state: "QLD" },
+  "currawinya national park":           { nearestTown: "Cunnamulla",       parksUrl: "https://parks.qld.gov.au/parks/currawinya",            bomTown: "charleville",    fireDangerRegion: "Maranoa and Warrego",              state: "QLD" },
+  "simpson desert national park":       { nearestTown: "Birdsville",       parksUrl: "https://parks.qld.gov.au/parks/simpson-desert",        bomTown: "birdsville",     fireDangerRegion: "Channel Country",                  state: "QLD" },
+  // ── NEW SOUTH WALES ─────────────────────────────────────────────────────────
+  // Greater Sydney + Illawarra
+  "blue mountains national park":       { nearestTown: "Katoomba",         parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/blue-mountains-national-park",        bomTown: "sydney",         fireDangerRegion: "Greater Sydney",                   state: "NSW" },
+  "royal national park":                { nearestTown: "Sutherland",       parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/royal-national-park",                bomTown: "sydney",         fireDangerRegion: "Greater Sydney",                   state: "NSW" },
+  "ku-ring-gai chase national park":    { nearestTown: "Turramurra",       parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/ku-ring-gai-chase-national-park",    bomTown: "sydney",         fireDangerRegion: "Greater Sydney",                   state: "NSW" },
+  "garigal national park":              { nearestTown: "St Ives",          parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/garigal-national-park",              bomTown: "sydney",         fireDangerRegion: "Greater Sydney",                   state: "NSW" },
+  "morton national park":               { nearestTown: "Nowra",            parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/morton-national-park",               bomTown: "nowra",          fireDangerRegion: "Illawarra",                         state: "NSW" },
+  "budderoo national park":             { nearestTown: "Kiama",            parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/budderoo-national-park",             bomTown: "nowra",          fireDangerRegion: "Illawarra",                         state: "NSW" },
+  "dharawal national park":             { nearestTown: "Helensburgh",      parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/dharawal-national-park",             bomTown: "sydney",         fireDangerRegion: "Greater Sydney",                   state: "NSW" },
+  // Hunter + Central Coast
+  "hunter wetlands national park":      { nearestTown: "Newcastle",        parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/hunter-wetlands-national-park",      bomTown: "newcastle",      fireDangerRegion: "Hunter",                           state: "NSW" },
+  "barrington tops national park":      { nearestTown: "Gloucester",       parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/barrington-tops-national-park",      bomTown: "newcastle",      fireDangerRegion: "Hunter",                           state: "NSW" },
+  "mount royal national park":          { nearestTown: "Singleton",        parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/mount-royal-national-park",          bomTown: "newcastle",      fireDangerRegion: "Hunter",                           state: "NSW" },
+  "watagan national park":              { nearestTown: "Cessnock",         parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/watagan-national-park",              bomTown: "newcastle",      fireDangerRegion: "Hunter",                           state: "NSW" },
+  // Northern NSW
+  "dorrigo national park":              { nearestTown: "Dorrigo",          parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/dorrigo-national-park",              bomTown: "coffs-harbour",  fireDangerRegion: "Northern Rivers",                  state: "NSW" },
+  "new england national park":          { nearestTown: "Armidale",         parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/new-england-national-park",          bomTown: "armidale",       fireDangerRegion: "New England",                      state: "NSW" },
+  "oxley wild rivers national park":    { nearestTown: "Armidale",         parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/oxley-wild-rivers-national-park",    bomTown: "armidale",       fireDangerRegion: "New England",                      state: "NSW" },
+  "bald rock national park":            { nearestTown: "Tenterfield",      parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/bald-rock-national-park",            bomTown: "tenterfield",    fireDangerRegion: "New England",                      state: "NSW" },
+  "gibraltar range national park":      { nearestTown: "Glen Innes",       parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/gibraltar-range-national-park",      bomTown: "glen-innes",     fireDangerRegion: "New England",                      state: "NSW" },
+  "nightcap national park":             { nearestTown: "Lismore",          parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/nightcap-national-park",             bomTown: "lismore",        fireDangerRegion: "Northern Rivers",                  state: "NSW" },
+  "mount warning national park":        { nearestTown: "Murwillumbah",     parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/mount-warning-national-park",        bomTown: "lismore",        fireDangerRegion: "Northern Rivers",                  state: "NSW" },
+  "border ranges national park":        { nearestTown: "Kyogle",           parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/border-ranges-national-park",        bomTown: "lismore",        fireDangerRegion: "Northern Rivers",                  state: "NSW" },
+  "yuraygir national park":             { nearestTown: "Grafton",          parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/yuraygir-national-park",             bomTown: "coffs-harbour",  fireDangerRegion: "Northern Rivers",                  state: "NSW" },
+  // Central NSW
+  "warrumbungle national park":         { nearestTown: "Coonabarabran",    parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/warrumbungle-national-park",         bomTown: "dubbo",          fireDangerRegion: "Central Ranges",                   state: "NSW" },
+  "wollemi national park":              { nearestTown: "Windsor",          parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/wollemi-national-park",              bomTown: "sydney",         fireDangerRegion: "Greater Sydney",                   state: "NSW" },
+  "gardens of stone national park":     { nearestTown: "Lithgow",          parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/gardens-of-stone-national-park",     bomTown: "bathurst",       fireDangerRegion: "Central Tablelands",               state: "NSW" },
+  "kanangra-boyd national park":        { nearestTown: "Oberon",           parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/kanangra-boyd-national-park",        bomTown: "bathurst",       fireDangerRegion: "Central Tablelands",               state: "NSW" },
+  // South / Snowy
+  "kosciuszko national park":           { nearestTown: "Jindabyne",        parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/kosciuszko-national-park",           bomTown: "cooma",          fireDangerRegion: "Snowy Mountains",                  state: "NSW" },
+  "deua national park":                 { nearestTown: "Braidwood",        parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/deua-national-park",                 bomTown: "canberra",       fireDangerRegion: "Southern Ranges",                  state: "NSW" },
+  "budawang national park":             { nearestTown: "Ulladulla",        parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/budawang-national-park",             bomTown: "nowra",          fireDangerRegion: "Illawarra",                         state: "NSW" },
+  "south east forests national park":   { nearestTown: "Eden",             parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/south-east-forests-national-park",   bomTown: "eden",           fireDangerRegion: "Far South Coast",                  state: "NSW" },
+  "mimosa rocks national park":         { nearestTown: "Bermagui",         parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/mimosa-rocks-national-park",         bomTown: "bega",           fireDangerRegion: "Far South Coast",                  state: "NSW" },
+  "bournda national park":              { nearestTown: "Merimbula",        parksUrl: "https://www.nationalparks.nsw.gov.au/visit-a-park/parks/bournda-national-park",              bomTown: "bega",           fireDangerRegion: "Far South Coast",                  state: "NSW" },
+};
+
+// Fuzzy match: returns best park match or null
+function lookupPark(input) {
+  if (!input) return null;
+  const query = input.toLowerCase()
+    .replace(/national park|np|reserve|conservation park/gi, '')
+    .replace(/[''\-]/g, ' ')
+    .trim();
+
+  // Exact match first
+  for (const [key, data] of Object.entries(PARK_LOOKUP)) {
+    const cleanKey = key.replace(/national park|np/gi, '').trim();
+    if (cleanKey.includes(query) || query.includes(cleanKey)) {
+      return data;
+    }
+  }
+
+  // Partial word match — score by number of matching words
+  const queryWords = query.split(/\s+/).filter(w => w.length > 2);
+  let bestMatch = null;
+  let bestScore = 0;
+
+  for (const [key, data] of Object.entries(PARK_LOOKUP)) {
+    const score = queryWords.filter(w => key.includes(w)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = data;
+    }
+  }
+
+  return bestScore >= 1 ? bestMatch : null;
+}
+
+function fillParkFields(data, parkName) {
+  const fills = [
+    ['nearestTown',      data.nearestTown],
+    ['parksUrl',         data.parksUrl],
+    ['bomTown',          data.bomTown],
+    ['fireDangerRegion', data.fireDangerRegion],
+  ];
+  fills.forEach(([id, value]) => {
+    if (value) {
+      const el = document.getElementById(id);
+      if (el) { el.value = value; el.classList.add('autofilled'); }
+    }
+  });
+  const header = document.getElementById('autofillFieldsHeader');
+  if (header) header.hidden = false;
+}
+
+async function autofillParkDetails() {
+  const parkName = document.getElementById('parkName').value.trim();
+  if (!parkName) {
+    showAutofillResult('error', 'Please enter a park name first.');
+    return;
+  }
+
+  const btn = document.getElementById('autofillBtn');
+  const btnLabel = document.getElementById('autofillBtnLabel');
+  btn.disabled = true;
+  btnLabel.innerHTML = '<span class="fire-ai-spinner">⏳</span> Looking up...';
+  // ── Try local lookup first (instant, no API) ──────────────────────────
+  const localMatch = lookupPark(parkName);
+  if (localMatch) {
+    fillParkFields(localMatch, parkName);
+    // Still do AI lookup for walks even if we have local data
+    showAutofillResult('loading', `✅ Park details found locally for "${parkName}"\n⏳ Now searching for walks… (this may take 15–20 seconds)`);
+  } else {
+    showAutofillResult('loading', `⏳ Looking up "${parkName}"… (15–20 seconds)`);
+  }
+
+  try {
+    const response = await fetch(getApiUrl() + '/v1/messages', {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        system: `You are a helpful assistant that looks up Australian national park details for a camping trip planner app.
+Use web search to find accurate, current information. Respond ONLY with a valid JSON object — no markdown, no backticks, no preamble, no explanation.
+
+The JSON must have exactly these keys:
+{
+  "nearestTown": "Name of the nearest town or service centre with fuel and shops",
+  "parksUrl": "Full URL to the park's page on the relevant state parks website (e.g. parks.qld.gov.au, nationalparks.nsw.gov.au, parks.vic.gov.au, etc.)",
+  "bomTown": "The BOM forecast town slug — the part after /qld/forecasts/ or /nsw/forecasts/ etc. Use lowercase with hyphens e.g. sunshine-coast",
+  "fireDangerRegion": "The specific AFAC/state fire agency fire danger district name covering this park e.g. 'Wide Bay and Burnett'",
+  "state": "Two-letter state abbreviation e.g. QLD NSW VIC SA WA TAS NT ACT",
+  "walks": [
+    {
+      "name": "Walk name including difficulty/distance if known e.g. 'Booloumba Falls (3km return, Grade 3)'",
+      "alltrailsUrl": "Full AllTrails URL if found e.g. https://www.alltrails.com/trail/australia/... — leave empty string if not found",
+      "notes": "One short sentence: key feature or tip e.g. 'Leads to a waterfall and swimming hole'"
+    }
+  ]
+}
+
+For walks: search AllTrails and the official park website. Find up to 8 actual walking tracks in this specific park. Include a mix of easy and moderate walks. Only include walks that genuinely exist in this park — do not guess or invent. If fewer than 8 real walks exist, return what you find.
+If you cannot find reliable information for any field, use an empty string "". The walks array can be empty [] if no walks are found.`,
+        messages: [{
+          role: 'user',
+          content: `Look up full details for: ${parkName}, Australia.
+1. Find the official state parks website URL for this specific park
+2. Nearest town with a servo and shops
+3. BOM weather forecast town slug for this area
+4. Fire danger district/region name
+5. Up to 8 actual walking tracks in this park with their AllTrails links if available
+
+Search AllTrails specifically for "${parkName} walks" to find accurate trail URLs.`
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(response.status === 401 ? 'AUTH' : `Error ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = (data.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('\n')
+      .trim();
+
+    if (!text) throw new Error('No response received');
+
+    // Parse JSON — strip any accidental markdown fences
+    const clean = text.replace(/```json|```/g, '').trim();
+    let info;
+    try {
+      info = JSON.parse(clean);
+    } catch {
+      throw new Error('Could not parse response — try again');
+    }
+
+    // ── Fill location fields (AI result — overrides local if found) ─────
+    const fills = [
+      ['nearestTown',      info.nearestTown],
+      ['parksUrl',         info.parksUrl],
+      ['bomTown',          info.bomTown],
+      ['fireDangerRegion', info.fireDangerRegion],
+    ];
+    fills.forEach(([id, value]) => {
+      if (value) {
+        const el = document.getElementById(id);
+        if (el) { el.value = value; el.classList.add('autofilled'); }
+      }
+    });
+
+    const header = document.getElementById('autofillFieldsHeader');
+    if (header) header.hidden = false;
+
+    // ── Fill walk suggestions into Step 6 ────────────────────────────
+    const walks = Array.isArray(info.walks) ? info.walks.filter(w => w.name) : [];
+    let walksPopulated = 0;
+
+    if (walks.length > 0) {
+      const walkList = document.getElementById('walkList');
+      if (walkList) {
+        // Clear existing entries
+        walkList.innerHTML = '';
+        walkCount = 0;
+
+        walks.slice(0, 8).forEach((walk, i) => {
+          walkCount++;
+          const entry = document.createElement('div');
+          entry.className = 'walk-entry walk-entry--suggested';
+          entry.innerHTML = `
+            <div class="walk-entry-num">${walkCount}</div>
+            <div class="walk-entry-fields">
+              <input type="text" class="walk-name autofilled" value="${walk.name.replace(/"/g, '&quot;')}"
+                placeholder="Walk name">
+              <input type="url" class="walk-url ${walk.alltrailsUrl ? 'autofilled' : ''}"
+                value="${walk.alltrailsUrl || ''}"
+                placeholder="AllTrails link (optional)">
+              ${walk.notes ? `<div class="walk-entry-note">${walk.notes}</div>` : ''}
+            </div>`;
+          walkList.appendChild(entry);
+          walksPopulated++;
+        });
+
+        // Hide add button if at max, show if under 8
+        const addBtn = document.getElementById('addWalkBtn');
+        if (addBtn) addBtn.style.display = walkCount >= 8 ? 'none' : 'block';
+      }
+
+      // Update Step 6 header to show walks were pre-filled
+      const step6Desc = document.querySelector('#wiz-step-6 .wiz-section-desc');
+      if (step6Desc) {
+        step6Desc.innerHTML = `✨ <strong>${walksPopulated} walk${walksPopulated !== 1 ? 's' : ''} found</strong> for ${parkName} — pre-filled below. Edit names, remove any that don't suit, or add more.`;
+      }
+    }
+
+    // ── Build summary message ────────────────────────────────────────
+    const stateLabel = info.state ? ` (${info.state})` : '';
+    const sourceLabel = localMatch ? '✅ Details from local database + ' : '✅ ';
+    const walksSummary = walks.length > 0
+      ? `🥾 Walks found: ${walks.length} — pre-filled in Step 6\n`
+      : `🥾 Walks: none found — add manually in Step 6\n`;
+
+    showAutofillResult('success',
+      `${sourceLabel}Found details for ${parkName}${stateLabel}\n` +
+      `📍 Nearest town: ${info.nearestTown || 'not found'}\n` +
+      `🌐 Parks URL: ${info.parksUrl ? 'found' : 'not found'}\n` +
+      `🌤️ BOM town: ${info.bomTown || 'not found'}\n` +
+      `🔥 Fire region: ${info.fireDangerRegion || 'not found'}\n` +
+      walksSummary +
+      `\nCheck the fields below and edit anything that looks wrong.`
+    );
+
+    btnLabel.textContent = '✨ Re-fill';
+
+  } catch (err) {
+    const isAuth = err.message === 'AUTH';
+    if (isAuth) {
+      if (localMatch) {
+        showAutofillResult('success',
+          '✅ Park details filled from local database.\n' +
+          '⚠️ Walk suggestions need Claude.ai — add walks manually in Step 6,\n' +
+          'or open this page inside Claude.ai for automatic walk suggestions.'
+        );
+      } else {
+        showAutofillResult('error',
+          '⚠️ Park not found locally and AI needs Claude.ai.\n\n' +
+          'Fill in the fields manually:\n' +
+          '• parks.qld.gov.au (QLD) · nationalparks.nsw.gov.au (NSW) · parks.vic.gov.au (VIC)\n' +
+          '• alltrails.com for walk links'
+        );
+      }
+    } else {
+      showAutofillResult('error', `⚠️ Could not fetch details: ${err.message}\n\nFill in the fields manually below.`);
+    }
+    btnLabel.textContent = '✨ Try again';
+  }
+
+  btn.disabled = false;
+}
+
+function showAutofillResult(type, message) {
+  const box = document.getElementById('autofillResult');
+  const inner = document.getElementById('autofillResultInner');
+  if (!box || !inner) return;
+  box.hidden = false;
+  box.className = `autofill-result ${type}`;
+  inner.textContent = message;
+}
+
+
+
+// ══════════════════════════════════════════════════════════════════════
+// TRIP STORAGE — localStorage
+// ══════════════════════════════════════════════════════════════════════
+
+const STORAGE_KEY = 'campPlanner_trips';
+const CURRENT_KEY = 'campPlanner_current';
+let activeTripId = null;
+
+function loadAllTrips() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+  catch { return {}; }
+}
+
+function saveAllTrips(trips) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(trips)); }
+  catch(e) { console.warn('localStorage unavailable:', e); }
+}
+
+function generateTripId() {
+  return 'trip_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+}
+
+function snapshotWizard() {
+  const get = id => document.getElementById(id)?.value?.trim() || '';
+  const isChecked = id => document.getElementById(id)?.checked || false;
+  const radio = name => document.querySelector(`input[name="${name}"]:checked`)?.value || '';
+  const walks = [...document.querySelectorAll('.walk-entry')].map(e => ({
+    name: e.querySelector('.walk-name')?.value?.trim() || '',
+    url:  e.querySelector('.walk-url')?.value?.trim()  || '',
+  })).filter(w => w.name);
+  const ownedGear = [...document.querySelectorAll('#gearGrid input:checked')].map(i => i.value);
+  return {
+    tripName: get('tripName'), dateFrom: get('dateFrom'), dateTo: get('dateTo'),
+    numAdults: get('numAdults'), numKids: get('numKids'), kidsAges: get('kidsAges'),
+    parkName: get('parkName'), campsiteName: get('campsiteName'),
+    nearestTown: get('nearestTown'), parksUrl: get('parksUrl'),
+    bomTown: get('bomTown'), fireDangerRegion: get('fireDangerRegion'),
+    power: radio('power'), access: radio('access'),
+    facToilets: isChecked('facToilets'), facShowers: isChecked('facShowers'),
+    facFirepit: isChecked('facFirepit'), facWater: isChecked('facWater'),
+    sleeping: radio('sleeping'), kidsSleep: radio('kidsSleep'),
+    dietDF: isChecked('dietDF'), dietGF: isChecked('dietGF'),
+    dietVeg: isChecked('dietVeg'), dietVegan: isChecked('dietVegan'),
+    dietNuts: isChecked('dietNuts'), dietNone: isChecked('dietNone'),
+    cooking: radio('cooking'), walks, ownedGear,
+  };
+}
+
+function restoreWizard(snap) {
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; };
+  const setCheck = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+  const setRadio = (name, val) => {
+    if (!val) return;
+    const el = document.querySelector(`input[name="${name}"][value="${val}"]`);
+    if (el) el.checked = true;
+  };
+  set('tripName', snap.tripName); set('dateFrom', snap.dateFrom); set('dateTo', snap.dateTo);
+  set('numAdults', snap.numAdults); set('numKids', snap.numKids); set('kidsAges', snap.kidsAges);
+  set('parkName', snap.parkName); set('campsiteName', snap.campsiteName);
+  set('nearestTown', snap.nearestTown); set('parksUrl', snap.parksUrl);
+  set('bomTown', snap.bomTown); set('fireDangerRegion', snap.fireDangerRegion);
+  setRadio('power', snap.power); setRadio('access', snap.access);
+  setCheck('facToilets', snap.facToilets ?? true); setCheck('facShowers', snap.facShowers);
+  setCheck('facFirepit', snap.facFirepit ?? true); setCheck('facWater', snap.facWater ?? true);
+  setRadio('sleeping', snap.sleeping); setRadio('kidsSleep', snap.kidsSleep);
+  setCheck('dietDF', snap.dietDF); setCheck('dietGF', snap.dietGF);
+  setCheck('dietVeg', snap.dietVeg); setCheck('dietVegan', snap.dietVegan);
+  setCheck('dietNuts', snap.dietNuts); setCheck('dietNone', snap.dietNone ?? true);
+  setRadio('cooking', snap.cooking);
+  const kaf = document.getElementById('kidsAgeField');
+  if (kaf) kaf.style.display = parseInt(snap.numKids) > 0 ? 'block' : 'none';
+  if (snap.walks?.length > 0) {
+    const wl = document.getElementById('walkList');
+    if (wl) {
+      wl.innerHTML = '';
+      walkCount = 0;
+      snap.walks.forEach(w => {
+        walkCount++;
+        const entry = document.createElement('div');
+        entry.className = 'walk-entry';
+        entry.innerHTML = `<div class="walk-entry-num">${walkCount}</div>
+          <div class="walk-entry-fields">
+            <input type="text" class="walk-name" value="${w.name.replace(/"/g,'&quot;')}" placeholder="Walk name">
+            <input type="url" class="walk-url" value="${(w.url||'').replace(/"/g,'&quot;')}" placeholder="AllTrails link (optional)">
+          </div>`;
+        wl.appendChild(entry);
+      });
+      const ab = document.getElementById('addWalkBtn');
+      if (ab) ab.style.display = walkCount >= 8 ? 'none' : 'block';
+    }
+  }
+  if (snap.ownedGear?.length > 0) {
+    document.querySelectorAll('#gearGrid input[type=checkbox]').forEach(cb => {
+      cb.checked = snap.ownedGear.includes(cb.value);
+    });
+  }
+}
+
+function saveCurrentTrip() {
+  const snap = snapshotWizard();
+  const name = snap.tripName || 'Unnamed Trip';
+  const trips = loadAllTrips();
+  if (!activeTripId) activeTripId = generateTripId();
+  trips[activeTripId] = {
+    id: activeTripId, name, parkName: snap.parkName || '',
+    dateFrom: snap.dateFrom || '', savedAt: new Date().toISOString(),
+    data: snap,
+    checked: JSON.parse(JSON.stringify(checked)),
+    sections: JSON.parse(JSON.stringify(SECTIONS)),
+  };
+  saveAllTrips(trips);
+  localStorage.setItem(CURRENT_KEY, activeTripId);
+  renderTripsBar();
+  showSaveStatus('✅ Saved');
+  renderTripsModal();
+}
+
+function loadTrip(id) {
+  const trips = loadAllTrips();
+  const trip = trips[id];
+  if (!trip) return;
+  activeTripId = id;
+  localStorage.setItem(CURRENT_KEY, id);
+  restoreWizard(trip.data);
+  if (trip.sections && Object.keys(trip.sections).length > 0) {
+    Object.keys(trip.sections).forEach(k => { SECTIONS[k] = trip.sections[k]; });
+    if (trip.checked) Object.assign(checked, trip.checked);
+    CONFIG = readConfig();
+    buildApp();
+    const nameEl = document.getElementById('saveBarName');
+    if (nameEl) nameEl.textContent = trip.name;
+  } else {
+    returnToWizard();
+  }
+  closeTripsModal();
+  renderTripsBar();
+  showSaveStatus('✅ Loaded');
+  announce(`Trip "${trip.name}" loaded`);
+}
+
+function deleteTrip(id) {
+  const trips = loadAllTrips();
+  const name = trips[id]?.name || 'this trip';
+  if (!confirm(`Delete "${name}"?`)) return;
+  delete trips[id];
+  saveAllTrips(trips);
+  if (activeTripId === id) {
+    activeTripId = null;
+    localStorage.removeItem(CURRENT_KEY);
+    const nameEl = document.getElementById('saveBarName');
+    if (nameEl) nameEl.textContent = 'Unsaved trip';
+  }
+  renderTripsBar();
+  renderTripsModal();
+  announce(`Trip "${name}" deleted`);
+}
+
+function startNewTrip() {
+  activeTripId = null;
+  localStorage.removeItem(CURRENT_KEY);
+  ['tripName','dateFrom','dateTo','parkName','campsiteName',
+   'nearestTown','parksUrl','bomTown','fireDangerRegion','kidsAges'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('numAdults').value = '2';
+  document.getElementById('numKids').value = '0';
+  const kaf = document.getElementById('kidsAgeField');
+  if (kaf) kaf.style.display = 'none';
+  const wl = document.getElementById('walkList');
+  if (wl) {
+    walkCount = 3;
+    wl.innerHTML = [1,2,3].map(n => `<div class="walk-entry">
+      <div class="walk-entry-num">${n}</div>
+      <div class="walk-entry-fields">
+        <input type="text" placeholder="Walk name" class="walk-name">
+        <input type="url" placeholder="AllTrails link (optional)" class="walk-url">
+      </div></div>`).join('');
+    const ab = document.getElementById('addWalkBtn'); if (ab) ab.style.display = 'block';
+  }
+  document.querySelectorAll('#gearGrid input[type=checkbox]').forEach(cb => cb.checked = false);
+  const ar = document.getElementById('autofillResult'); if (ar) ar.hidden = true;
+  const ah = document.getElementById('autofillFieldsHeader'); if (ah) ah.hidden = true;
+  document.querySelectorAll('.autofilled').forEach(el => el.classList.remove('autofilled'));
+  closeTripsModal();
+  returnToWizard();
+  document.querySelector('.wiz-section.active')?.classList.remove('active');
+  document.getElementById('wiz-step-1')?.classList.add('active');
+  currentStep = 1;
+  renderWizDots();
+  document.getElementById('wizBack').style.display = 'none';
+  document.getElementById('wizNext').style.display = 'block';
+  document.getElementById('wizBuild').style.display = 'none';
+  renderTripsBar();
+  announce('New trip started');
+}
+
+function renderTripsBar() {
+  const trips = loadAllTrips();
+  const scroll = document.getElementById('tripsScroll');
+  if (!scroll) return;
+  const entries = Object.values(trips).sort((a,b) => (b.savedAt||'').localeCompare(a.savedAt||''));
+  if (entries.length === 0) {
+    scroll.innerHTML = '<span style="font-size:0.62rem;color:rgba(245,240,228,0.35);font-style:italic">No saved trips yet</span>';
+    return;
+  }
+  scroll.innerHTML = entries.map(trip => `
+    <div class="trip-chip${trip.id===activeTripId?' active':''}" role="listitem"
+      onclick="loadTrip('${trip.id}')" title="${trip.name}">
+      🏕️ ${trip.name.length>18?trip.name.slice(0,16)+'…':trip.name}
+      <button class="trip-chip-del" onclick="event.stopPropagation();deleteTrip('${trip.id}')"
+        aria-label="Delete ${trip.name}">✕</button>
+    </div>`).join('');
+}
+
+function renderTripsModal() {
+  const trips = loadAllTrips();
+  const body = document.getElementById('modalBody');
+  if (!body) return;
+  const entries = Object.values(trips).sort((a,b) => (b.savedAt||'').localeCompare(a.savedAt||''));
+  if (entries.length === 0) {
+    body.innerHTML = '<p class="modal-empty">No saved trips yet — build your first trip and tap Save.</p>';
+    return;
+  }
+  body.innerHTML = entries.map(trip => {
+    const date = trip.dateFrom ? new Date(trip.dateFrom).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '';
+    const saved = trip.savedAt ? new Date(trip.savedAt).toLocaleDateString('en-AU',{day:'numeric',month:'short'}) : '';
+    return `<div class="saved-trip-row${trip.id===activeTripId?' active-trip':''}" onclick="loadTrip('${trip.id}')">
+      <span class="saved-trip-icon">🏕️</span>
+      <div class="saved-trip-info">
+        <div class="saved-trip-name">${trip.name}${trip.id===activeTripId?' <span style="font-size:0.6rem;color:var(--moss)">● current</span>':''}</div>
+        <div class="saved-trip-meta">${[trip.parkName,date,saved?'Saved '+saved:''].filter(Boolean).join(' · ')}</div>
+      </div>
+      <div class="saved-trip-actions">
+        <button class="trip-action-btn" onclick="event.stopPropagation();loadTrip('${trip.id}')">Load</button>
+        <button class="trip-action-btn del" onclick="event.stopPropagation();deleteTrip('${trip.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openTripsModal() { renderTripsModal(); const m=document.getElementById('tripsModal'); if(m){m.hidden=false;document.getElementById('modalClose')?.focus();} }
+function closeTripsModal() { const m=document.getElementById('tripsModal'); if(m) m.hidden=true; }
+function showSaveStatus(msg) {
+  const el=document.getElementById('saveStatus'); if(!el) return;
+  el.textContent=msg; el.style.opacity='1';
+  setTimeout(()=>{el.style.opacity='0';},2000);
+}
+function autoSaveChecked() {
+  if(!activeTripId) return;
+  const trips=loadAllTrips(); if(!trips[activeTripId]) return;
+  trips[activeTripId].checked=JSON.parse(JSON.stringify(checked));
+  trips[activeTripId].sections=JSON.parse(JSON.stringify(SECTIONS));
+  saveAllTrips(trips);
+}
+
+function announce(msg) {
+  const el = document.getElementById('a11y-announce');
+  if (!el) return;
+  el.textContent = '';
+  setTimeout(() => { el.textContent = msg; }, 50);
+}
+
+// Init wizard
+document.getElementById('wizBack').style.display  = 'none';
+document.getElementById('wizBuild').style.display = 'none';
+
+// Trips bar
+document.getElementById('btnNewTrip')?.addEventListener('click', startNewTrip);
+
+// Save bar (app screen)
+document.getElementById('btnSaveTrip')?.addEventListener('click', () => {
+  saveCurrentTrip();
+  const nameEl = document.getElementById('saveBarName');
+  if (nameEl && CONFIG.tripName) nameEl.textContent = CONFIG.tripName;
+});
+document.getElementById('btnTripsList')?.addEventListener('click', openTripsModal);
+document.getElementById('modalClose')?.addEventListener('click', closeTripsModal);
+document.getElementById('btnModalNewTrip')?.addEventListener('click', startNewTrip);
+
+// Close modal on overlay click
+document.getElementById('tripsModal')?.addEventListener('click', e => {
+  if (e.target === document.getElementById('tripsModal')) closeTripsModal();
+});
+
+// Close modal on Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !document.getElementById('tripsModal')?.hidden) closeTripsModal();
+});
+
+// Auto-save checked items when user checks/unchecks
+const _origRenderAll = renderAll;
+window.renderAll = function() {
+  _origRenderAll();
+  autoSaveChecked();
+};
+
+// Load last active trip on page load
+const lastId = localStorage.getItem(CURRENT_KEY);
+if (lastId) {
+  const trips = loadAllTrips();
+  if (trips[lastId]) {
+    activeTripId = lastId;
+    restoreWizard(trips[lastId].data);
+    const nameEl = document.getElementById('saveBarName');
+    if (nameEl) nameEl.textContent = trips[lastId].name || 'Saved trip';
+  }
+}
+
+// Render trips bar on load
+renderTripsBar();
+
+// ── Service Worker (PWA offline support) ──────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW failed:', err));
+  });
+}
+
+// ── PWA Install Banner ─────────────────────────────────────────────────────────
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  setTimeout(showInstallBanner, 2000);
+});
+function showInstallBanner() {
+  if (!deferredInstallPrompt) return;
+  const b = document.getElementById('installBanner');
+  if (b) b.style.display = 'flex';
+}
+function installApp() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(choice => {
+    const b = document.getElementById('installBanner');
+    if (b) b.style.display = 'none';
+    deferredInstallPrompt = null;
+  });
+}
+function dismissInstallBanner() {
+  const b = document.getElementById('installBanner');
+  if (b) b.style.display = 'none';
+  deferredInstallPrompt = null;
+}
+window.addEventListener('appinstalled', () => {
+  const b = document.getElementById('installBanner');
+  if (b) b.style.display = 'none';
+});
+</script>
+<!-- Trips modal -->
+<div class="modal-overlay" id="tripsModal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">🏕️ Saved Trips</span>
+      <button class="modal-close" id="modalClose" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <p class="modal-empty">No saved trips yet — build your first trip and tap Save.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" style="flex:1;font-size:0.7rem" id="btnModalNewTrip">+ New trip</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="installBanner" role="complementary" aria-label="Install app">
+  <span class="install-banner-icon" aria-hidden="true">🏕️</span>
+  <div class="install-banner-body">
+    <div class="install-banner-title">Add to Home Screen</div>
+    <div class="install-banner-sub">Works offline · Saves your trips</div>
+  </div>
+  <div class="install-banner-actions">
+    <button class="install-btn" onclick="installApp()">Install</button>
+    <button class="dismiss-btn" onclick="dismissInstallBanner()" aria-label="Dismiss">✕</button>
+  </div>
+</div>
+</body>
+</html>
